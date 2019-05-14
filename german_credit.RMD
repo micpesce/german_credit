@@ -1,0 +1,31 @@
+---
+title: "german_credit"
+author: "Michele Pesce"
+date: "14 maggio 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Oveview
+
+The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at <https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>  It consists of a data text file containing 1k records and twenty attributes and has been converted in a dataframe named *credits_df*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are clearly explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names.
+This project rely on a typical binary classification problem: there is only a label “credit” whose possible values are “good” and “bad” which refer to a bank customer who asked for a credit; the one who payed back are “good”, the one didn’t, “back”.
+The bank board would wish to know in advance who would be good an who would be bad, on the basis of customer attributes. The target is to study and  evalute best approaches to predict with high reliability the customer category on the base of attributes/factors after data manipulation/trasformation and a set of analysis tasks. 
+
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

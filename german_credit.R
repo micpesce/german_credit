@@ -23,3 +23,6 @@ glimpse(credit_df)
 #exploring NA'S
 sum(is.na(credit_df))
 sum(complete.cases(credit_df))
+ 
+
+#credit_df %>% mutate_at()
