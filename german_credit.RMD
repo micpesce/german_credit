@@ -7,25 +7,62 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+#loading mandatory libraries
+library(gdata)
+library(dplyr)
+library(stringr)
+library(tidyr)
+#loading and converting original downloaded dataset
+credit_df <- read.csv("german.data", header=FALSE, sep = " ")
+# defining assigning variables names extracted from metadata file text
+colNames = c("checking_account", "duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","guarantors","residence","property","age","other_plans","housing","other_credits","job","house_manteinant","telephone","foreign_worker","credit")
+names(credit_df)   <-  colNames
 ```
 
 ## Oveview
 
-The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at <https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>  It consists of a data text file containing 1k records and twenty attributes and has been converted in a dataframe named *credits_df*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are clearly explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names.
+The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at **<https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>**  It consists of a data text file containing 1k records and twenty attributes and has been converted in a dataframe named *credits_df*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are clearly explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names.
 This project rely on a typical binary classification problem: there is only a label “credit” whose possible values are “good” and “bad” which refer to a bank customer who asked for a credit; the one who payed back are “good”, the one didn’t, “back”.
 The bank board would wish to know in advance who would be good an who would be bad, on the basis of customer attributes. The target is to study and  evalute best approaches to predict with high reliability the customer category on the base of attributes/factors after data manipulation/trasformation and a set of analysis tasks. 
+This document reports the following sections:
+
+- **Data cleaning** In this section,  the data integrity is explored, and possibly executed all the operations to make the dataset assessable for further analisys
+
+- **Data exploration** Variables in the dataset are explored and checked in order to choose the relevant factors that could be used as predictors for the target labels.
+
+- **The modeling approach** ML algorithms that best fit the kind of problem are chosen to predict the outcome, on the basis of the predictors assesed on the data exploration section. Usually, more than an ML is checked and tuned and chosen the one that minimize rmse or maximize accuracy.
+
+- **Results** The ML outcomes are compared, and evaluated pros and cons of the different approaches.
+
+- **Conclusions** To summary the operations, and take in consideration further different approaches that could improve the project and the results
 
 
-```{r cars}
-summary(cars)
+
+## Data Cleaning
+
+The first operation that have to be done on data is to check the presence of the inconsistent values that could affect the correctness of analysis. Generally, if we don’t take in count incoherent values, mean and sd could be affected by bias, all the further analisys would be affected by some kind of error, and prediction would fail. First of all, the presence of NA’s must be checked. Fortunately, the data frame does not contain NA’s value as shown in the following R code,
+so all the metrics are calculated on true data.
+
+
+```{r datacleaning, message=FALSE, warning=FALSE}
+
+#exploring NA'S
+sum(is.na(credit_df))
+sum(complete.cases(credit_df))
+
 ```
 
-## Including Plots
+## Data exploration
 
-You can also embed plots, for example:
+Domain knowledge is essential before solving any ML problem, otherwise we will end up applying random algorithms and techniques blindly which may not give the right results. As a first step, to get a broad idea of what kind of data we are dealing with and summarize what has happened in the past, *descriptive analytics* will be applied.  The different attributes of the data will be observed in order to extract meaningful features, use statistics and visualizations to understand what has already happened. The information obtained could be very useful to select some meaningful variables and exclude others that are not  The following table shows the number of unique values for each variable, this could be an hint for evaluating the grade of variability
+```{r unique_values, echo=FALSE, message=FALSE, warning=FALSE}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+library(miscset)
+unique_values <- data_frame(VARIABLE=colNames[1],UNIQUE_VAL=nunique(credit_df[,1])) #Creating first row oa tibble
+for (i in 2:length(names(credit_df))) { #calculate unique values for each variable and store them in the tibble adding rows
+  unique_values <- bind_rows(unique_values,data_frame(VARIABLE=colNames[i],UNIQUE_VAL=nunique(credit_df[,i])))
+}
+unique_values %>% knitr::kable()
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
