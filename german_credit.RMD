@@ -5,23 +5,24 @@ date: "14 maggio 2019"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, eval=TRUE, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 #loading mandatory libraries
 library(gdata)
 library(dplyr)
 library(stringr)
 library(tidyr)
+file.rename("german.doc","german.txt") #renames file to get it readable
 #loading and converting original downloaded dataset
-credit_df <- read.csv("german.data", header=FALSE, sep = " ")
+credit_original <- read.csv("german.data", header=FALSE, sep = " ")
 # defining assigning variables names extracted from metadata file text
 colNames = c("checking_account", "duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","guarantors","residence","property","age","other_plans","housing","other_credits","job","house_manteinant","telephone","foreign_worker","credit")
-names(credit_df)   <-  colNames
+names(credit_original)   <-  colNames
 ```
 
 ## Oveview
 
-The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at **<https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>**  It consists of a data text file containing 1k records and twenty attributes and has been converted in a dataframe named *credits_df*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are clearly explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names.
+The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at **<https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>**  It consists of a data text file containing 1k records and twenty attributes and has been converted in a dataframe named *credits_original*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are  explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names. In the next section the activity of conversion/replacement of dataset is shown
 This project rely on a typical binary classification problem: there is only a label “credit” whose possible values are “good” and “bad” which refer to a bank customer who asked for a credit; the one who payed back are “good”, the one didn’t, “back”.
 The bank board would wish to know in advance who would be good an who would be bad, on the basis of customer attributes. The target is to study and  evalute best approaches to predict with high reliability the customer category on the base of attributes/factors after data manipulation/trasformation and a set of analysis tasks. 
 This document reports the following sections:
@@ -44,25 +45,97 @@ The first operation that have to be done on data is to check the presence of the
 so all the metrics are calculated on true data.
 
 
-```{r datacleaning, message=FALSE, warning=FALSE}
+```{r dataCleaning, eval=TRUE, message=FALSE, warning=FALSE}
 
 #exploring NA'S
-sum(is.na(credit_df))
-sum(complete.cases(credit_df))
+sum(is.na(credit_original))
+sum(complete.cases(credit_original))
 
 ```
 
+The next activity arranges data to get them more meaningful. The *credit_original* and the *key_map* dataframes are used as input for computing a new dataframe *credit_clear* whose values replace the coded "Axxx" values of  the original one.
+The *key_map* is a obtained from the *german.doc*, conveniently slightly handly modified, that is a kind of hash-map with two variables: the keys as "Axxx" format and the values as meaningful descriptions. The *credit_original* is also converted in df numeric, i.e. all the factor varaible are transformed in numeric, so we have a *credit_num* used for applyng important statistical metrics. Next, two glimpse of   *credit_clear* and *credit_num* dataframes, are illustrated.
+
+
+```{r dataReplacement, echo=FALSE, message=FALSE, warning=FALSE}
+
+####@@@@REPLACING coded values with meaningful data 
+
+key_map <- readLines("german.txt")
+key_map <- key_map[grepl("A[0-9]", key_map)] #filter rows with coded variable
+extra_char <- which(grepl(":.*:", key_map))
+key_map <- as.data.frame(key_map)
+key_map <- key_map %>% separate(key_map, into= c("KEY","VALUE"), sep=":" ) 
+#in the next line of code the KEY column is cleaned
+key_map$KEY <- gsub(" ", "",key_map$KEY, fixed = TRUE) %>% gsub("\t", "",., fixed = TRUE)
+
+
+credit_clear <- credit_original #copy original dataset in a new for replacing coded values
+for (i in 1:length(names(credit_clear))) { #iterates all columns
+  if (is.factor(credit_clear[,i]))#selects only columns with AXXX factor format
+    credit_clear[,i] <- key_map$VALUE[match(credit_clear[,i], key_map$KEY)] #replace key with values
+
+credit_clear <- credit_clear %>% mutate(credit=ifelse(.$credit==1,"pass","fail"))#making credit variable as categorical  
+}credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to a numeric df
+
+glimpse(credit_clear)
+glimpse(credit_num)
+
+
+```
 ## Data exploration
 
-Domain knowledge is essential before solving any ML problem, otherwise we will end up applying random algorithms and techniques blindly which may not give the right results. As a first step, to get a broad idea of what kind of data we are dealing with and summarize what has happened in the past, *descriptive analytics* will be applied.  The different attributes of the data will be observed in order to extract meaningful features, use statistics and visualizations to understand what has already happened. The information obtained could be very useful to select some meaningful variables and exclude others that are not  The following table shows the number of unique values for each variable, this could be an hint for evaluating the grade of variability
+Domain knowledge is essential before solving any ML problem, otherwise we will end up applying random algorithms and techniques blindly which may not give the right results. As a first step, to get a broad idea of what kind of data we are dealing with and summarize what has happened in the past, *descriptive analytics* will be applied.  The different attributes of the data will be observed in order to extract meaningful features, use statistics and visualizations to understand what has already happened. The information obtained could be  useful to select some predictive variables and exclude others that are not  The following table shows the number of unique values for each variable
 ```{r unique_values, echo=FALSE, message=FALSE, warning=FALSE}
 
 library(miscset)
-unique_values <- data_frame(VARIABLE=colNames[1],UNIQUE_VAL=nunique(credit_df[,1])) #Creating first row oa tibble
-for (i in 2:length(names(credit_df))) { #calculate unique values for each variable and store them in the tibble adding rows
-  unique_values <- bind_rows(unique_values,data_frame(VARIABLE=colNames[i],UNIQUE_VAL=nunique(credit_df[,i])))
+unique_values <- data_frame(VARIABLE=colNames[1],UNIQUE_VAL=nunique(credit_original[,1])) #Creating first row oa tibble
+for (i in 2:length(names(credit_original))) { #calculate unique values for each variable and store them in the tibble adding rows
+  unique_values <- bind_rows(unique_values,data_frame(VARIABLE=colNames[i],UNIQUE_VAL=nunique(credit_original[,i])))
 }
 unique_values %>% knitr::kable()
+
+
+
+```
+```{r credit_admission, echo=FALSE, message=FALSE, warning=FALSE}
+
+#credit admission plot
+qplot(credit_clear$credit, geom="bar",
+      fill=I('gray'), col=I('black'),
+      xlab = "Credit admission" , ylab = "Count" )
+pass_amount <- length(which(credit_clear$credit=="pass"))
+fail_amount <- length(which(credit_clear$credit=="fail"))
+
+
+```
+```{r credit_amount, echo=FALSE, message=FALSE, warning=FALSE}
+
+#credit amount analysis vs credit admission
+p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$credit_amount))  +  ggtitle(" Credit pass")+ geom_histogram(fill="green") +  xlab("Credit amount")+ ylab("Count")
+
+p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount))  +  ggtitle(" Credit fail")+ geom_histogram(fill="red") +  xlab("Credit amount")+ ylab("Count")
+
+library(gridExtra)
+grid.arrange(p1, p2, ncol = 2)
+
+
+```
+
+```{r credit_history, echo=FALSE, message=FALSE, warning=FALSE}
+
+#credit history analysis vs credit admission
+p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$Credit_history)) +
+  ggtitle(" Credit pass")+ geom_bar(fill="green") + 
+  scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
+
+p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$Credit_history)) +
+  ggtitle(" Credit fail")+ geom_bar(fill="red") + 
+  scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
+
+library(gridExtra)
+grid.arrange(p1, p2, ncol = 2)
+
 
 ```
 
