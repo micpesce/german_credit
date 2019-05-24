@@ -35,7 +35,7 @@ Attribute 1:  (qualitative)
 	       Status of existing checking account
                A11 : debtor
 	       A12 : enough
-	       A13 : fair
+	       A13 : good
 		     salary assignments for at least 1 year
                A14 : no_account
 
