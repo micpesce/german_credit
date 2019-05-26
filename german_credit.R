@@ -56,19 +56,23 @@ for (i in 2:length(names(credit_original))) { #calculate unique values for each 
 unique_values %>% knitr::kable()
 
 
-#credit admission plot
+#<<<<<<<<<<<<<<credit admission plot>>>>>>>>>>>>>>>>>>>
 qplot(credit_clear$credit, geom="bar",
       fill=I('gray'), col=I('black'),
       xlab = "Credit admission" , ylab = "Count" )
 pass_amount <- length(which(credit_clear$credit=="pass")) #good credit
 fail_amount <- length(which(credit_clear$credit=="fail")) #bad credit
+#<<<<<<<<<<<<<<credit admission plot>>>>>>>>>>>>>>>>>>>
 
-#credit amount analysis vs credit admission
+
+
+
+#<<<<<<<<<<<<<< credit amount analysis vs credit admission (start block) >>>>>>>>>>>>>>>>>>
+
 #Two different plots each for good and bad credit, both for credit amount distribution
-
 p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$credit_amount)) +
   ggtitle(" Credit pass")+ geom_histogram(fill="green", bins=30)  +
-  scale_y_continuous(limits=c(0,150))+xlab("Credit amount")+ ylab("Count") 
+  scale_y_continuous(limits=c(0,150))+xlab("Credit amount")+ ylab("Count") #limits chosen empirically to show real proportion
 
 p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount)) +
   ggtitle(" Credit fail")+ geom_histogram(fill="red", bins=30)  +
@@ -76,19 +80,20 @@ p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount)
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
+#<<<<<<<<<<<<<< credit amount distribution vs credit admission (end block)>>>>>>>>>>>>>>>>>>>
 
-#The credit history distribution
+
+#<<<<<<<<<<<<<< credit history distribution (start block) >>>>>>>>>>>>>
 credit_clear  %>% ggplot(aes(Credit_history)) +
   ggtitle(" Credit history distribution")+ geom_bar(fill="blue") + 
   xlab("Credit history") + ylab("Count") + theme(axis.text.x = element_text(angle = 90))
+#the next code computes a table showing summarized categories and proportions inside Credit_history
+as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(amount=n())) %>% mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
+#<<<<<<<<<<<<<< credit history distribution (end block) >>>>>>>>>>>>>>>
 
 
-#The credit history density
-credit_clear  %>% ggplot(aes(Credit_history)) +
-  ggtitle(" Credit history distribution")+ geom_density(fill="blue") + 
-  xlab("Credit history") + ylab("Count") + theme(axis.text.x = element_text(angle = 90))
 
-#credit history analysis vs credit admission
+#<<<<<<<<<<<<<< credit history distribution vs credit admission (start block) >>>>>>>>>>>>>
 p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$Credit_history)) +
   ggtitle(" Credit pass")+ geom_bar(fill="green") + 
   scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
@@ -99,33 +104,58 @@ p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$Credit_history
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
+#<<<<<<<<<<<<<< credit history distribution vs credit admission (end block) >>>>>>>>>>>>>
 
-#Credit amount by personal status
+
+
+#<<<<<<<<<<<<<< Personal status vs Credit amount and age (start block) >>>>>>>>>>>>>
 credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit)) +
-  ggtitle(" Credit amount by personal status")+ geom_boxplot() + 
+  ggtitle(" Credit amount by personal status")+ geom_boxplot(varwidth = TRUE) + 
    theme(axis.text.x = element_text(angle = 90, hjust = 1))
- 
+
+#the next code computes a table showing summarized categories and proportions inside personal_status
+as.data.frame(credit_clear %>% group_by(personal_status) %>% summarize(amount=n())) %>% 
+  mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
+#extracting total amount of male_single with credit  >= 7500 approved
+credit_clear %>% filter(credit_amount >=7500   & personal_status=="male_single" & credit=="pass") %>% count(.)   %>% .$n
+
 #age by personal status
 credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit)) +
   ggtitle(" age by personal status")+ geom_boxplot() + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+#<<<<<<<<<<<<<< Personal status vs Credit amount and age (end block) >>>>>>>>>>>>>
 
-#emplyment-since by credit amount
-credit_clear  %>%  ggplot(aes(x=employment_since,y=credit_amount,fill=credit)) +
-  ggtitle(" mplyment-since by credit amount")+ geom_boxplot() + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-#emplyment-since by credit amount based on Job
-credit_clear  %>%  ggplot(aes(x=employment_since,y=credit_amount,fill=credit)) +
-  ggtitle(" emplyment-since by credit amount")+ geom_boxplot() + 
+
+
+
+#<<<<<<<<<<<<<< Emplyment and job Analysis (start block) >>>>>>>>>>>>>
+
+
+
+#Job Proportion table
+as.data.frame(credit_clear %>% group_by(job) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#Employment history table
+as.data.frame(credit_clear %>% group_by(employment_since) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+
+#Emplyment history vs credit_amount on job as parameter
+#Unemployed has been kept out, because, as a parameter, is quite irrelevant
+credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(aes(x=employment_since,y=credit_amount,fill=credit)) +
+  ggtitle("emplyment-history by credit amount on job parameter")+ geom_boxplot(varwidth = TRUE) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))+
   facet_grid(. ~ job)
+
+#<<<<<<<<<<<<<< Emplyment and job Analysis (end block) >>>>>>>>>>>>>
 
 #Cheking-account VS duration based on history
 
 credit_clear %>% 
   ggplot(aes(checking_account, duration, fill=credit)) +
-  geom_boxplot() +
+  geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   xlab("Cheking-account") +
   facet_wrap(. ~ Credit_history)
@@ -178,6 +208,11 @@ credit_clear %>%
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   xlab("housing") 
+
+library(corrplot)
+cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
+cor(credit_num$duration,credit_num$credit_amount)
+qplot(credit_num$credit_amount,credit_num$duration, fill=credit_num$credit)
 
 for_free <- length(which(credit_clear$housing=="for_free")) #good credit
 rent <- length(which(credit_clear$housing=="rent")) #good credit

@@ -7,16 +7,17 @@ output: pdf_document
 
 ```{r setup, eval=TRUE, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#loading mandatory libraries
 library(gdata)
 library(dplyr)
 library(stringr)
 library(tidyr)
-file.rename("german.doc","german.txt") #renames file to get it readable
-#loading and converting original downloaded dataset
+library(ggplot2)
+library(readtext)
+library(graphics)
+#Retrieving the row original dataset 
 credit_original <- read.csv("german.data", header=FALSE, sep = " ")
-# defining assigning variables names extracted from metadata file text
-colNames = c("checking_account", "duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","guarantors","residence","property","age","other_plans","housing","other_credits","job","house_manteinant","telephone","foreign_worker","credit")
+#Metadata definition and assignment
+colNames = c("checking_account", "duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","other_guarantors","residence","property","age","other_plans","housing","other_credits","job","house_manteinant","telephone","foreign_worker","credit")
 names(credit_original)   <-  colNames
 ```
 
@@ -48,9 +49,10 @@ so all the metrics are calculated on true data.
 ```{r dataCleaning, eval=TRUE, message=FALSE, warning=FALSE}
 
 #exploring NA'S
+
 sum(is.na(credit_original))
 sum(complete.cases(credit_original))
-
+glimpse(credit_original)
 ```
 
 The next activity arranges data to get them more meaningful. The *credit_original* and the *key_map* dataframes are used as input for computing a new dataframe *credit_clear* whose values replace the coded "Axxx" values of  the original one.
@@ -60,27 +62,24 @@ The *key_map* is a obtained from the *german.doc*, conveniently slightly handly 
 ```{r dataReplacement, echo=FALSE, message=FALSE, warning=FALSE}
 
 ####@@@@REPLACING coded values with meaningful data 
-
+library(tm)
+file.rename("german.doc","german.txt") #renames file to get it readable
 key_map <- readLines("german.txt")
 key_map <- key_map[grepl("A[0-9]", key_map)] #filter rows with coded variable
-extra_char <- which(grepl(":.*:", key_map))
 key_map <- as.data.frame(key_map)
 key_map <- key_map %>% separate(key_map, into= c("KEY","VALUE"), sep=":" ) 
-#in the next line of code the KEY column is cleaned
+#in the next line of code the key_map DF is cleaned
 key_map$KEY <- gsub(" ", "",key_map$KEY, fixed = TRUE) %>% gsub("\t", "",., fixed = TRUE)
-
+key_map$VALUE <- gsub(" ", "",key_map$VALUE, fixed = TRUE) %>% gsub("\t", "",., fixed = TRUE)
 
 credit_clear <- credit_original #copy original dataset in a new for replacing coded values
 for (i in 1:length(names(credit_clear))) { #iterates all columns
   if (is.factor(credit_clear[,i]))#selects only columns with AXXX factor format
     credit_clear[,i] <- key_map$VALUE[match(credit_clear[,i], key_map$KEY)] #replace key with values
+}
 
-credit_clear <- credit_clear %>% mutate(credit=ifelse(.$credit==1,"pass","fail"))#making credit variable as categorical  
-}credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to a numeric df
-
-glimpse(credit_clear)
-glimpse(credit_num)
-
+credit_clear <- credit_clear %>% mutate(credit=ifelse(.$credit==1,"pass", "fail")) #making credit variable as categorical
+credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to a numeric df
 
 ```
 ## Data exploration
@@ -98,23 +97,35 @@ unique_values %>% knitr::kable()
 
 
 ```
+
+The *credit_amount*, *duration*, *age* variables are the numerical ones: the first  concerns the credit required, it shows the most variability among all variables, the second about the duration in weeks of the cheking_account variable, the third is about the wide range of appicant's age. The others are all categorical variables.
+
+Next a simple plot showing the "good" and "bad" credit proportions: the first that should get the positive bank board evaluation has `r  {length(which(credit_clear$credit=="pass"))/10}`% proportion an the second that should not the `r {length(which(credit_clear$credit=="fail"))/10}`%
+
 ```{r credit_admission, echo=FALSE, message=FALSE, warning=FALSE}
 
 #credit admission plot
 qplot(credit_clear$credit, geom="bar",
       fill=I('gray'), col=I('black'),
       xlab = "Credit admission" , ylab = "Count" )
-pass_amount <- length(which(credit_clear$credit=="pass"))
-fail_amount <- length(which(credit_clear$credit=="fail"))
-
 
 ```
+
+
+The next plot shows the *credit amount* factor vs credit admission, split in two parts: the good credit ( pass) and the bad credit (fail).
+As shown, the credit admission does not seem to rely on credit amount, the plots look like quite similar. Most of applicants ask for low amount, i.e. the 75% is lower than `r  {quantile(credit_clear$credit_amount, names=FALSE)[4]}` DM and the average is `r  {mean(credit_clear$credit_amount)}` DM
+
 ```{r credit_amount, echo=FALSE, message=FALSE, warning=FALSE}
 
-#credit amount analysis vs credit admission
-p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$credit_amount))  +  ggtitle(" Credit pass")+ geom_histogram(fill="green") +  xlab("Credit amount")+ ylab("Count")
+#credit amount analysis in two separate plots, the first for the good and the second for the bad credit
+#y limits chosen empirically to show real proportion
+p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$credit_amount)) +
+  ggtitle(" Credit pass")+ geom_histogram(fill="green", bins=30)  +
+  scale_y_continuous(limits=c(0,150))+xlab("Credit amount")+ ylab("Count") 
 
-p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount))  +  ggtitle(" Credit fail")+ geom_histogram(fill="red") +  xlab("Credit amount")+ ylab("Count")
+p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount)) +
+  ggtitle(" Credit fail")+ geom_histogram(fill="red", bins=30)  +
+  scale_y_continuous(limits=c(0,150))+ xlab("Credit amount")+ ylab("Count") 
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
@@ -122,9 +133,24 @@ grid.arrange(p1, p2, ncol = 2)
 
 ```
 
-```{r credit_history, echo=FALSE, message=FALSE, warning=FALSE}
+The following illustrations show graphically and as-a-table the *Credit_history* distribution and proportions. More than half are trusted applicants who are reliable debtors, one-third have critical account so that they need a loan for some purchase.
 
-#credit history analysis vs credit admission
+```{r credit_history_summary, echo=FALSE, message=FALSE, warning=FALSE}
+#credit history distribution
+credit_clear  %>% ggplot(aes(Credit_history)) +
+  ggtitle(" Credit history distribution")+ geom_bar(fill="blue") + 
+  xlab("Credit history") + ylab("Count") + theme(axis.text.x = element_text(angle = 90))
+#the next code computes a table showing summarized categories and proportions inside Credit_history
+as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(amount=n())) %>% mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+
+```
+
+The next plot show no direct relationship between *Credit_history* and credit admission ( the *credit* variable chosen as label). The two bar diagrams are quite similar and the different heights are releted to the proportion as shown in the table
+
+```{r credit_history_by_credit_admission, echo=FALSE, message=FALSE, warning=FALSE}
+
+#credit history distribution vs credit admission
 p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$Credit_history)) +
   ggtitle(" Credit pass")+ geom_bar(fill="green") + 
   scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
@@ -139,3 +165,39 @@ grid.arrange(p1, p2, ncol = 2)
 
 ```
 
+The analysis next step focuses on *credit_amount*, *personal_status* and *age*. The table shows the proportion of personal status categories: more than half are male singles, the 30% are generally female. The majority of the first have bad credit, although `r  {credit_clear %>% filter(credit_amount >=7500   & personal_status=="male_single" & credit=="pass") %>% count(.)   %>% .$n}` in 1000 is good for credit over 7500 DM as shown in the first plot.
+The plot age vs personal status does not seem of particular interest, but generally the proportion of females that has "good"" credit is higher than "bad".
+
+```{r credit_amount_by_personal_stat, echo=FALSE, message=FALSE, warning=FALSE}
+
+credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit)) +
+  ggtitle(" Credit amount by personal status")+ geom_boxplot(varwidth = TRUE) + 
+   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#the next code computes a table showing summarized categories and proportions inside personal_status
+as.data.frame(credit_clear %>% group_by(personal_status) %>% summarize(amount=n())) %>% 
+  mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit)) +
+  ggtitle(" age by personal status")+ geom_boxplot(varwidth = TRUE) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+Prior to start job and employment-history, two tables have been provided in order to observe proportions. It is very hard for unskilled and uemployed applicants to ask for loan, infact only 22 in 1000 are present as observation, so that these have been cut out from box-plot analysis.
+The data set top job is the skilled-employee, who more easly is a good credit candidate for middle/high credit amount. In proportion, managers/self-employed ask for high credit, but generally they are not considered very reliable. No way for unemployed, eventually skilled emplyee with consolidated employment history are favourite.
+
+```{r emplyment-since, echo=FALSE, message=FALSE, warning=FALSE}
+#Job Proportion table
+as.data.frame(credit_clear %>% group_by(job) %>% summarize(Total=n())) %>%  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#Employment history table
+as.data.frame(credit_clear %>% group_by(employment_since) %>% summarize(Total=n())) %>% mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#Emplyment history vs credit_amount on job as parameter
+#Unemployed has been kept out, because, as a parameter, is quite irrelevant
+credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(aes(x=employment_since,y=credit_amount,fill=credit)) +
+  ggtitle("emplyment-history by credit amount on job parameter")+ geom_boxplot(varwidth = TRUE) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  facet_grid(. ~ job)
+```
