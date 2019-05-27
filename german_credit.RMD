@@ -201,3 +201,114 @@ credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(a
   theme(axis.text.x = element_text(angle = 90, hjust = 1))+
   facet_grid(. ~ job)
 ```
+
+The credit-history is important to figure out the customer trust; The 53% of them are reliable applicants that pay duly existing credits; the 30% are customers with critical account either with other credits in different bank. Anyway, as shown in the table, except for a 6% that has a good bank account, the proportions are fairly partitioned among enough account, negative account, or even with no account.  
+Looking at the *Cheking-account VS duration* plot, except for customers wiith good account, the bank consider "bad" the duration over 25 weeks: i.e. if you have few money for a long time you could not pay the loan duly, the analysis is more detailed if adding in the contest the credit_history parameter. 
+Finally, in the last plot *Credit amount by Cheking-account* It is possible to observe that without a good account It is hard to get a loan over 3000 DM. 
+
+```{r checking_account/duration/history, echo=FALSE, message=FALSE, warning=FALSE}
+#Credit_history proportion table
+as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#checking_account proportion table
+as.data.frame(credit_clear %>% group_by(checking_account) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#Cheking-account VS duration
+credit_clear %>% 
+  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggtitle("Cheking-account by duration" )+
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Cheking-account VS duration on credit_history parameter 
+credit_clear %>% 
+  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggtitle("Cheking-account by duration on credit_history parameter")+
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  facet_wrap(. ~ Credit_history)
+
+#Cheking-account VS credit_amount
+credit_clear %>% 
+  ggplot(aes(checking_account, credit_amount, fill=credit)) +
+  ggtitle("Credit amount by Cheking-account") +
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+As analysis last step, other meaningful attributes vs credit_amount has been illustrated. The saving_accounts proportion table shows that poors are the absolute majority: it is quite normal that who has low savings ( and possibly no other neither little property) tends to ask for a loan.
+The 60% of total ask loans for cars or radio/television.
+In the *Credit amount vs Property on saving-account parameter* the "excellent" saving_account value has been excluded, because it is a very few amount, also "good" and "very good" have very few applicants; poor or no-savings with no-property/unkown have favour but not for high amount.
+The *Credit amount vs age on saving-account parameter* plot shows a different perspective based on age: generally the most of customers are in the 20-45 age rank, anyway who has poor or no-saving could be older. Only a little proportion of poor-saving-customer gets credit over 7500 DM.On the other hand, customers with no or unknown savings have high chance to get positive classification. Seemingly, as savings increase the proportion of good evaluation  increases too regardless age,  anyway the correlation between savings and credit amount is `r  {cor(credit_num$credit_amount,credit_num$savings_account) }` which is too low and it would depend, among others, on different age and saving prportions.   
+
+```{r other/credit_amount/pt1, echo=FALSE, message=FALSE, warning=FALSE}
+#savings_account proportion table
+as.data.frame(credit_clear %>% group_by(savings_account) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#property proportion table
+as.data.frame(credit_clear %>% group_by(property) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#purpose proportion table
+as.data.frame(credit_clear %>% group_by(purpose) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#property VS credit_amount based on saving account
+credit_clear %>% filter(savings_account!="excellent") %>%
+  ggplot(aes(property, credit_amount, fill=credit)) +
+  ggtitle("Credit amount vs Property on saving-account parameter") +
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  facet_wrap(. ~ savings_account)
+
+#age VS credit_amount based on saving amount
+credit_clear %>% 
+  ggplot(aes(age, credit_amount, color=credit)) +
+  ggtitle("Credit amount vs age on saving-account parameter") +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  facet_wrap(. ~ savings_account)
+
+
+
+
+
+
+```
+
+The *purpose VS credit_amount* plot shows that only for a very few cases it is possible to get a credit over 7500 DM just for radio/television or a new car; over  5000 for a used  car, but never over 7500. The data are very heterogeneous, so It is very difficult to observe a general behaviour.
+The *guarantors VS credit_amount* does not help more, generally is better not to have other guarantors.
+Looking at the *housing VS credit_amount* plot it is easy to observe that who pays the rent would not ask for high credit, similarly the owner that would pay for mortgage (who would not, probably could ask for high loan).
+The favourite is a "for_free" customer that does not pay any rent or mortgage, even though high credit could not be ammitted.
+
+
+```{r other/credit_amount/pt2, echo=FALSE, message=FALSE, warning=FALSE}
+
+#purpose VS credit_amount
+credit_clear %>% 
+  ggplot(aes(purpose, credit_amount, fill=credit)) +
+  ggtitle("purpose VS credit_amount") +
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+  
+  
+#guarantors VS credit_amount 
+credit_clear %>% 
+  ggplot(aes(other_guarantors, credit_amount, fill=credit)) +
+  ggtitle("guarantors VS credit_amount") +
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+  
+#housing VS credit_amount 
+credit_clear %>% 
+  ggplot(aes(housing, credit_amount, fill=credit)) +
+  ggtitle("housing VS credit_amount") +
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+   
+
+```
+

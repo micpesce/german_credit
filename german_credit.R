@@ -137,7 +137,7 @@ credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit)) +
 as.data.frame(credit_clear %>% group_by(job) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
 
-#Employment history table
+#Employment history proportion table
 as.data.frame(credit_clear %>% group_by(employment_since) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
 
@@ -151,64 +151,95 @@ credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(a
 
 #<<<<<<<<<<<<<< Emplyment and job Analysis (end block) >>>>>>>>>>>>>
 
-#Cheking-account VS duration based on history
+#<<<<<<<<<<<<<< Cheking-account,duration and  credit_history anlysis (start block) >>>>>>>>>>>>>
 
+#Credit_history proportion table
+as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#checking_account proportion table
+as.data.frame(credit_clear %>% group_by(checking_account) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#Cheking-account VS duration
 credit_clear %>% 
   ggplot(aes(checking_account, duration, fill=credit)) +
+  ggtitle("Cheking-account by duration" )+
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+#Cheking-account VS duration on credit_history parameter 
+credit_clear %>% 
+  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggtitle("Cheking-account by duration on credit_history parameter")+
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("Cheking-account") +
   facet_wrap(. ~ Credit_history)
 
 #Cheking-account VS credit_amount
-
 credit_clear %>% 
   ggplot(aes(checking_account, credit_amount, fill=credit)) +
+  ggtitle("Credit amount by Cheking-account") +
+  geom_boxplot(varwidth = TRUE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+#<<<<<<<<<<<<<< Cheking-account,duration and  credit_history anlysis (end block) >>>>>>>>>>>>>
+
+
+#<<<<<<<<<<<<<< credit_amount vs other meaniningful atributes (start block) >>>>>>>>>>>>>
+
+#savings_account proportion table
+as.data.frame(credit_clear %>% group_by(savings_account) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+#property proportion table
+as.data.frame(credit_clear %>% group_by(property) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+#purpose proportion table
+as.data.frame(credit_clear %>% group_by(purpose) %>% summarize(Total=n())) %>% 
+  mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+#property VS credit_amount based on saving account
+credit_clear %>% filter(savings_account!="excellent") %>%
+  ggplot(aes(property, credit_amount, fill=credit)) +
+  ggtitle("Credit amount vs Property on saving-account parameter") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("Cheking-account") 
-  
-
-#property VS credit_amount based on saving amount
-
-credit_clear %>% 
-  ggplot(aes(property, credit_amount, fill=credit)) +
-  geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("Property") +
   facet_wrap(. ~ savings_account)
 
 #age VS credit_amount based on saving amount
-
 credit_clear %>% 
   ggplot(aes(age, credit_amount, color=credit)) +
+  ggtitle("Credit amount vs age on saving-account parameter") +
   geom_point() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("age") +
   facet_wrap(. ~ savings_account)
 
 
-#purpose VS credit_amount 
+
+
+#purpose VS credit_amount
 credit_clear %>% 
   ggplot(aes(purpose, credit_amount, fill=credit)) +
+  ggtitle("purpose VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("purpose") 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+  
   
 #guarantors VS credit_amount 
 credit_clear %>% 
-  ggplot(aes(guarantors, credit_amount, fill=credit)) +
+  ggplot(aes(other_guarantors, credit_amount, fill=credit)) +
+  ggtitle("guarantors VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("guarantors") 
-
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+  
 #housing VS credit_amount 
 credit_clear %>% 
   ggplot(aes(housing, credit_amount, fill=credit)) +
+  ggtitle("housing VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  xlab("housing") 
-
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+   
+#<<<<<<<<<<<<<< credit_amount vs other meaniningful atributes (end block) >>>>>>>>>>>>>
 library(corrplot)
 cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
 cor(credit_num$duration,credit_num$credit_amount)
