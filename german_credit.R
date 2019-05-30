@@ -6,10 +6,13 @@ library(tidyr)
 library(ggplot2)
 library(readtext)
 library(graphics)
+library(caret)
+library(miscset)
+library(tm)
 #Retrieving the row original dataset 
 credit_original <- read.csv("german.data", header=FALSE, sep = " ")
 #Metadata definition and assignment
-colNames = c("checking_account", "duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","other_guarantors","residence","property","age","other_plans","housing","other_credits","job","house_manteinant","telephone","foreign_worker","credit")
+colNames = c("checking_account", "credit_duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","other_guarantors","residence","property","age","other_plans","housing","existing_credits","job","house_manteinant","telephone","foreign_worker","credit_response")
 names(credit_original)   <-  colNames
 # a quick view
 glimpse(credit_original)
@@ -21,7 +24,7 @@ sum(complete.cases(credit_original))
 #@@@@@@@@@@@@@@@@@ DATA CLEANING @@@@@@@@@@@@@@@@@@@@@
 
 ####@@@@REPLACING coded values with meaningful data 
-library(tm)
+
 file.rename("german.doc","german.txt") #renames file to get it readable
 key_map <- readLines("german.txt")
 key_map <- key_map[grepl("A[0-9]", key_map)] #filter rows with coded variable
@@ -37,8 +40,8 @@ for (i in 1:length(names(credit_clear))) { #iterates all columns
     credit_clear[,i] <- key_map$VALUE[match(credit_clear[,i], key_map$KEY)] #replace key with values
 }
 
-credit_clear <- credit_clear %>% mutate(credit=ifelse(.$credit==1,"pass", "fail")) #making credit variable as categorical
-credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to a numeric df
+credit_clear <- credit_clear %>% mutate(credit_response=ifelse(.$credit_response==1,"good", "bad")) #making credit_response variable as categorical
+
 
 
 
@@ -48,7 +51,7 @@ credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to 
 
 #The following code chunk creates a table showing factors and respective unique values
 #This is for a simple view to help to understand the kind and types of graphics to develop analysis
-library(miscset)
+
 unique_values <- data_frame(VARIABLE=colNames[1],UNIQUE_VAL=nunique(credit_original[,1])) #Creating first row oa tibble
 for (i in 2:length(names(credit_original))) { #calculate unique values for each variable and store them in the tibble adding rows
   unique_values <- bind_rows(unique_values,data_frame(VARIABLE=colNames[i],UNIQUE_VAL=nunique(credit_original[,i])))
@@ -57,30 +60,29 @@ unique_values %>% knitr::kable()
 
 
 #<<<<<<<<<<<<<<credit admission plot>>>>>>>>>>>>>>>>>>>
-qplot(credit_clear$credit, geom="bar",
+qplot(credit_clear$credit_response, geom="bar",
       fill=I('gray'), col=I('black'),
-      xlab = "Credit admission" , ylab = "Count" )
-pass_amount <- length(which(credit_clear$credit=="pass")) #good credit
-fail_amount <- length(which(credit_clear$credit=="fail")) #bad credit
-#<<<<<<<<<<<<<<credit admission plot>>>>>>>>>>>>>>>>>>>
+      xlab = "Credit response" , ylab = "Count" )
+
+#<<<<<<<<<<<<<<credit response plot>>>>>>>>>>>>>>>>>>>
 
 
 
 
-#<<<<<<<<<<<<<< credit amount analysis vs credit admission (start block) >>>>>>>>>>>>>>>>>>
+#<<<<<<<<<<<<<< credit amount analysis vs credit response (start block) >>>>>>>>>>>>>>>>>>
 
-#Two different plots each for good and bad credit, both for credit amount distribution
-p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$credit_amount)) +
-  ggtitle(" Credit pass")+ geom_histogram(fill="green", bins=30)  +
+#Two different plots each for good and bad response, both for credit amount distribution
+p1 <- credit_clear  %>% filter(credit_response=="good") %>% ggplot(aes(x=.$credit_amount)) +
+  ggtitle("Good credit")+ geom_histogram(fill="green", bins=30)  +
   scale_y_continuous(limits=c(0,150))+xlab("Credit amount")+ ylab("Count") #limits chosen empirically to show real proportion
 
-p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount)) +
-  ggtitle(" Credit fail")+ geom_histogram(fill="red", bins=30)  +
+p2 <- credit_clear %>% filter(credit_response=="bad") %>%  ggplot(aes(x=.$credit_amount)) +
+  ggtitle("Bad credit")+ geom_histogram(fill="red", bins=30)  +
   scale_y_continuous(limits=c(0,150))+ xlab("Credit amount")+ ylab("Count") 
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
-#<<<<<<<<<<<<<< credit amount distribution vs credit admission (end block)>>>>>>>>>>>>>>>>>>>
+#<<<<<<<<<<<<<< credit amount distribution vs credit response (end block)>>>>>>>>>>>>>>>>>>>
 
 
 #<<<<<<<<<<<<<< credit history distribution (start block) >>>>>>>>>>>>>
@@ -93,23 +95,23 @@ as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(amount=n()
 
 
 
-#<<<<<<<<<<<<<< credit history distribution vs credit admission (start block) >>>>>>>>>>>>>
-p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$Credit_history)) +
-  ggtitle(" Credit pass")+ geom_bar(fill="green") + 
+#<<<<<<<<<<<<<< credit history distribution vs credit response (start block) >>>>>>>>>>>>>
+p1 <- credit_clear  %>% filter(credit_response=="good") %>% ggplot(aes(x=.$Credit_history)) +
+  ggtitle("Good Credit")+ geom_bar(fill="green") + 
   scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
 
-p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$Credit_history)) +
-  ggtitle(" Credit fail")+ geom_bar(fill="red") + 
+p2 <- credit_clear %>% filter(credit_response=="bad") %>%  ggplot(aes(x=.$Credit_history)) +
+  ggtitle("Bad credit")+ geom_bar(fill="red") + 
   scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
-#<<<<<<<<<<<<<< credit history distribution vs credit admission (end block) >>>>>>>>>>>>>
+#<<<<<<<<<<<<<< credit history distribution vs credit response (end block) >>>>>>>>>>>>>
 
 
 
 #<<<<<<<<<<<<<< Personal status vs Credit amount and age (start block) >>>>>>>>>>>>>
-credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit)) +
+credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit_response)) +
   ggtitle(" Credit amount by personal status")+ geom_boxplot(varwidth = TRUE) + 
    theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
@@ -117,21 +119,21 @@ credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit)) +
 as.data.frame(credit_clear %>% group_by(personal_status) %>% summarize(amount=n())) %>% 
   mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
 #extracting total amount of male_single with credit  >= 7500 approved
-credit_clear %>% filter(credit_amount >=7500   & personal_status=="male_single" & credit=="pass") %>% count(.)   %>% .$n
+credit_clear %>% filter(credit_amount >=7500   & personal_status=="male_single" & credit_response=="good") %>% count(.)   %>% .$n
 
 #age by personal status
-credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit)) +
+credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit_response)) +
   ggtitle(" age by personal status")+ geom_boxplot() + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 #<<<<<<<<<<<<<< Personal status vs Credit amount and age (end block) >>>>>>>>>>>>>
 
+credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit_response)) +
+  ggtitle(" age by personal status")+ geom_boxplot() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
 
-
-#<<<<<<<<<<<<<< Emplyment and job Analysis (start block) >>>>>>>>>>>>>
-
-
+#<<<<<<<<<<<<<< Employment and job Analysis (start block) >>>>>>>>>>>>>
 
 #Job Proportion table
 as.data.frame(credit_clear %>% group_by(job) %>% summarize(Total=n())) %>% 
@@ -144,14 +146,14 @@ as.data.frame(credit_clear %>% group_by(employment_since) %>% summarize(Total=n(
 
 #Emplyment history vs credit_amount on job as parameter
 #Unemployed has been kept out, because, as a parameter, is quite irrelevant
-credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(aes(x=employment_since,y=credit_amount,fill=credit)) +
-  ggtitle("emplyment-history by credit amount on job parameter")+ geom_boxplot(varwidth = TRUE) + 
+credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(aes(x=employment_since,y=credit_amount,fill=credit_response)) +
+  ggtitle("EmplOyment-history by credit amount on job parameter")+ geom_boxplot(varwidth = TRUE) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))+
   facet_grid(. ~ job)
 
 #<<<<<<<<<<<<<< Emplyment and job Analysis (end block) >>>>>>>>>>>>>
 
-#<<<<<<<<<<<<<< Cheking-account,duration and  credit_history anlysis (start block) >>>>>>>>>>>>>
+#<<<<<<<<<<<<<< Cheking-account,duration and  credit_history analysis (start block) >>>>>>>>>>>>>
 
 #Credit_history proportion table
 as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())) %>% 
@@ -161,16 +163,20 @@ as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())
 as.data.frame(credit_clear %>% group_by(checking_account) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
 
+#Duration density plot 
+ggplot(credit_clear, aes(credit_duration, fill=credit_response)) + 
+  geom_density(alpha=.5)
+
 #Cheking-account VS duration
 credit_clear %>% 
-  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggplot(aes(checking_account, credit_duration, fill=credit_response)) +
   ggtitle("Cheking-account by duration" )+
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 #Cheking-account VS duration on credit_history parameter 
 credit_clear %>% 
-  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggplot(aes(checking_account, credit_duration, fill=credit_response)) +
   ggtitle("Cheking-account by duration on credit_history parameter")+
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -178,7 +184,7 @@ credit_clear %>%
 
 #Cheking-account VS credit_amount
 credit_clear %>% 
-  ggplot(aes(checking_account, credit_amount, fill=credit)) +
+  ggplot(aes(checking_account, credit_amount, fill=credit_response)) +
   ggtitle("Credit amount by Cheking-account") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
@@ -186,7 +192,9 @@ credit_clear %>%
 #<<<<<<<<<<<<<< Cheking-account,duration and  credit_history anlysis (end block) >>>>>>>>>>>>>
 
 
-#<<<<<<<<<<<<<< credit_amount vs other meaniningful atributes (start block) >>>>>>>>>>>>>
+
+
+#<<<<<<<<<<<<<< credit_amount vs other meaniningful attributes (start block) >>>>>>>>>>>>>
 
 #savings_account proportion table
 as.data.frame(credit_clear %>% group_by(savings_account) %>% summarize(Total=n())) %>% 
@@ -200,7 +208,7 @@ as.data.frame(credit_clear %>% group_by(purpose) %>% summarize(Total=n())) %>%
 
 #property VS credit_amount based on saving account
 credit_clear %>% filter(savings_account!="excellent") %>%
-  ggplot(aes(property, credit_amount, fill=credit)) +
+  ggplot(aes(property, credit_amount, fill=credit_response)) +
   ggtitle("Credit amount vs Property on saving-account parameter") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -219,7 +227,7 @@ credit_clear %>%
 
 #purpose VS credit_amount
 credit_clear %>% 
-  ggplot(aes(purpose, credit_amount, fill=credit)) +
+  ggplot(aes(purpose, credit_amount, fill=credit_response)) +
   ggtitle("purpose VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
@@ -227,24 +235,120 @@ credit_clear %>%
   
 #guarantors VS credit_amount 
 credit_clear %>% 
-  ggplot(aes(other_guarantors, credit_amount, fill=credit)) +
+  ggplot(aes(other_guarantors, credit_amount, fill=credit_response)) +
   ggtitle("guarantors VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
   
 #housing VS credit_amount 
 credit_clear %>% 
-  ggplot(aes(housing, credit_amount, fill=credit)) +
+  ggplot(aes(housing, credit_amount, fill=credit_response)) +
   ggtitle("housing VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
    
 #<<<<<<<<<<<<<< credit_amount vs other meaniningful atributes (end block) >>>>>>>>>>>>>
-library(corrplot)
-cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
-cor(credit_num$duration,credit_num$credit_amount)
-qplot(credit_num$credit_amount,credit_num$duration, fill=credit_num$credit)
 
-for_free <- length(which(credit_clear$housing=="for_free")) #good credit
-rent <- length(which(credit_clear$housing=="rent")) #good credit
-own <- length(which(credit_clear$housing=="own")) #good credit
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@PREPROCESSING @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+#<<<<<<<<<<<<<< correlation and variables selection (start block) >>>>>>>>>>>>>
+credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to a numeric df
+glimpse(credit_num)
+
+library(corrplot)
+#create a visual map showing the correlation values between all variables
+#and is ordered by clustering
+cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
+#The couple of variables most correlated
+cor(credit_num$credit_duration,credit_num$credit_amount)
+#the most correlated variables scatter plot and smoothing
+credit_clear  %>% ggplot(aes(credit_amount,credit_duration, color=credit)) +geom_point() + geom_smooth()
+
+
+library(caret)
+nzv <- NULL #initialize variable
+#the nzv function looks for variables that could be cut out from predictors
+nzv <- nearZeroVar(credit_num, names=TRUE, saveMetrics = TRUE) #returns a detailed table
+nzv <- nearZeroVar(credit_num, names=FALSE) #returns the column index
+if(!is.null(nzv)) #if nzv is consistent ( calculated by function)..
+  credit_clear <- credit_clear[,-nzv]#..cut nrz variable from df 
+
+#<<<<<<<<<<<<<< correlation and variables selection (end block) >>>>>>>>>>>>>
+
+
+#<<<<<<<<<<<<<< Normalization (start block) >>>>>>>>>>>>>
+
+credit_norm <- credit_clear # a df copy to be normalized 
+col_num <- credit_norm[, sapply(credit_norm,is.numeric)] %>% names(.) #extracts numeric column names
+col_cat <- credit_norm[, sapply(credit_norm,is.character)] %>% names(.) #extracts categorical column names
+
+for (n in col_num) { #scales all numeric variables
+  credit_norm[,n] <- scale(credit_norm[,n])
+  
+}
+for (f in col_cat) { #factorizes all categorical variables
+  credit_norm[,f] <- as.factor(credit_norm[,f])
+}
+#<<<<<<<<<<<<<< Normalization (end block) >>>>>>>>>>>>>
+#test
+col_num_orig <- credit_original[, sapply(credit_original,is.numeric)] %>% names(.) #extracts numeric column names
+#col_num_orig <- col_num_orig[, "credit_response"]
+for (n in col_num_orig) { #scales all numeric variables
+  credit_original[,n] <- scale(credit_original[,n])
+  
+}
+#!test
+
+
+
+#<<<<<<<<<<<<<< Data partition (start block) >>>>>>>>>>>>>
+
+
+set.seed(123)
+test_index <- createDataPartition(y = credit_norm$credit_response, times = 1, p = 0.3, list = FALSE)
+german_credit_train <- credit_norm[-test_index,] #70% of total
+german_credit_test <- credit_norm[test_index,] #30% of total
+
+
+
+#<<<<<<<<<<<<<< Data partition (end block) >>>>>>>>>>>>>>>
+#test
+library(caret)
+set.seed(123)
+test_index <- createDataPartition(y = credit_original$credit_response, times = 1, p = 0.3, list = FALSE)
+gc_train <- credit_original[-test_index,] #70% of total
+gc_test <- credit_original[test_index,] #70% of total
+li <- which(names(gc_train)=="credit_response") #to get the label variable index
+xtr <- gc_train[,-li] # The predictors train data set
+ytr <- gc_train[21]
+ytr <- factor(ytr[,1])
+
+#!test
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@ THE ML MODELING APPROACH @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+
+#@@@@@@@@@@@@@@@ KNN: CROSS VALIDATION (start block)##########
+
+# Fit the model on the german_credit_train training set
+set.seed(123)
+y <- german_credit_train$credit_response #The classification label to predict
+label_index <- which(names(german_credit_train)=="credit_response") #to get the label variable index
+x <- german_credit_train[,-label_index] # The predictors train data set
+x<-x[1]
+
+control <- trainControl(method = "cv", number = 10, p = .9)
+model_knn <- train(xtr,
+  ytr,
+  trControl = control,
+  data=gc_train, method = "knn",
+  metric = "Accuracy",
+  tuneGrid = data.frame(k = seq(1, 4, 2)))
+
+#Saving the model result
+
+saveRDS(model_knn, "model_knn.rds")
+
+#######################################################
+
+
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@

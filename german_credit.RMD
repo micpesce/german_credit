@@ -14,10 +14,11 @@ library(tidyr)
 library(ggplot2)
 library(readtext)
 library(graphics)
+library(caret)
 #Retrieving the row original dataset 
 credit_original <- read.csv("german.data", header=FALSE, sep = " ")
 #Metadata definition and assignment
-colNames = c("checking_account", "duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","other_guarantors","residence","property","age","other_plans","housing","other_credits","job","house_manteinant","telephone","foreign_worker","credit")
+colNames = c("checking_account", "credit_duration", "Credit_history", "purpose", "credit_amount","savings_account","employment_since","percentage_income","personal_status","other_guarantors","residence","property","age","other_plans","housing","existing_credits","job","house_manteinant","telephone","foreign_worker","credit_response")
 names(credit_original)   <-  colNames
 ```
 
@@ -56,7 +57,7 @@ glimpse(credit_original)
 ```
 
 The next activity arranges data to get them more meaningful. The *credit_original* and the *key_map* dataframes are used as input for computing a new dataframe *credit_clear* whose values replace the coded "Axxx" values of  the original one.
-The *key_map* is a obtained from the *german.doc*, conveniently slightly handly modified, that is a kind of hash-map with two variables: the keys as "Axxx" format and the values as meaningful descriptions. The *credit_original* is also converted in df numeric, i.e. all the factor varaible are transformed in numeric, so we have a *credit_num* used for applyng important statistical metrics. Next, two glimpse of   *credit_clear* and *credit_num* dataframes, are illustrated.
+The *key_map* is a obtained from the *german.doc*, conveniently slightly handly modified, that is a kind of hash-map with two variables: the keys as "Axxx" format and the values as meaningful descriptions. Next, the glimpse of   *credit_clear* df.
 
 
 ```{r dataReplacement, echo=FALSE, message=FALSE, warning=FALSE}
@@ -78,8 +79,8 @@ for (i in 1:length(names(credit_clear))) { #iterates all columns
     credit_clear[,i] <- key_map$VALUE[match(credit_clear[,i], key_map$KEY)] #replace key with values
 }
 
-credit_clear <- credit_clear %>% mutate(credit=ifelse(.$credit==1,"pass", "fail")) #making credit variable as categorical
-credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) #converting to a numeric df
+credit_clear <- credit_clear %>% mutate(credit_response=ifelse(.$credit_response==1,"good", "bad")) #making credit variable as categorical
+
 
 ```
 ## Data exploration
@@ -98,33 +99,33 @@ unique_values %>% knitr::kable()
 
 ```
 
-The *credit_amount*, *duration*, *age* variables are the numerical ones: the first  concerns the credit required, it shows the most variability among all variables, the second about the duration in weeks of the cheking_account variable, the third is about the wide range of appicant's age. The others are all categorical variables.
+The *credit_amount*, *credit_duration*, *age* variables are the numerical ones: the first  concerns the credit required, it shows the most variability among all variables, the second about the credit_duration in weeks, the third is about the wide range of appicant's age. The others are all categorical variables.
 
-Next a simple plot showing the "good" and "bad" credit proportions: the first that should get the positive bank board evaluation has `r  {length(which(credit_clear$credit=="pass"))/10}`% proportion an the second that should not the `r {length(which(credit_clear$credit=="fail"))/10}`%
+Next a simple plot showing the "good" and "bad" credit proportions: the first that should get the positive bank board evaluation has `r  {length(which(credit_clear$credit_response=="good"))/10}`% proportion an the second that should not the `r {length(which(credit_clear$credit_response=="bad"))/10}`%
 
-```{r credit_admission, echo=FALSE, message=FALSE, warning=FALSE}
+```{r credit_response, echo=FALSE, message=FALSE, warning=FALSE}
 
-#credit admission plot
-qplot(credit_clear$credit, geom="bar",
+#credit response plot
+qplot(credit_clear$credit_response, geom="bar",
       fill=I('gray'), col=I('black'),
-      xlab = "Credit admission" , ylab = "Count" )
+      xlab = "Credit response" , ylab = "Count" )
 
 ```
 
 
-The next plot shows the *credit amount* factor vs credit admission, split in two parts: the good credit ( pass) and the bad credit (fail).
-As shown, the credit admission does not seem to rely on credit amount, the plots look like quite similar. Most of applicants ask for low amount, i.e. the 75% is lower than `r  {quantile(credit_clear$credit_amount, names=FALSE)[4]}` DM and the average is `r  {mean(credit_clear$credit_amount)}` DM
+The next plot shows the *credit amount* factor vs credit response, split in two parts: the good credit  and the bad credit.
+As shown, the credit response does not seem to rely on credit amount, the plots look like quite similar. Most of applicants ask for low amount, i.e. the 75% is lower than `r  {quantile(credit_clear$credit_amount, names=FALSE)[4]}` DM and the average is `r  {mean(credit_clear$credit_amount)}` DM
 
 ```{r credit_amount, echo=FALSE, message=FALSE, warning=FALSE}
 
 #credit amount analysis in two separate plots, the first for the good and the second for the bad credit
 #y limits chosen empirically to show real proportion
-p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$credit_amount)) +
-  ggtitle(" Credit pass")+ geom_histogram(fill="green", bins=30)  +
+p1 <- credit_clear  %>% filter(credit_response=="good") %>% ggplot(aes(x=.$credit_amount)) +
+  ggtitle("Good credit")+ geom_histogram(fill="green", bins=30)  +
   scale_y_continuous(limits=c(0,150))+xlab("Credit amount")+ ylab("Count") 
 
-p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$credit_amount)) +
-  ggtitle(" Credit fail")+ geom_histogram(fill="red", bins=30)  +
+p2 <- credit_clear %>% filter(credit_response=="bad") %>%  ggplot(aes(x=.$credit_amount)) +
+  ggtitle("Bad Crediit")+ geom_histogram(fill="red", bins=30)  +
   scale_y_continuous(limits=c(0,150))+ xlab("Credit amount")+ ylab("Count") 
 
 library(gridExtra)
@@ -146,16 +147,16 @@ as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(amount=n()
 
 ```
 
-The next plot show no direct relationship between *Credit_history* and credit admission ( the *credit* variable chosen as label). The two bar diagrams are quite similar and the different heights are releted to the proportion as shown in the table
+The next plot show no direct relationship between *Credit_history* and credit response ( the *credit_response* variable chosen as label). The two bar diagrams are quite similar and the different heights are releted to the proportion as shown in the table
 
-```{r credit_history_by_credit_admission, echo=FALSE, message=FALSE, warning=FALSE}
+```{r credit_history_by_credit_response, echo=FALSE, message=FALSE, warning=FALSE}
 
-#credit history distribution vs credit admission
-p1 <- credit_clear  %>% filter(credit=="pass") %>% ggplot(aes(x=.$Credit_history)) +
+#credit history distribution vs credit response
+p1 <- credit_clear  %>% filter(credit_response=="good") %>% ggplot(aes(x=.$Credit_history)) +
   ggtitle(" Credit pass")+ geom_bar(fill="green") + 
   scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
 
-p2 <- credit_clear %>% filter(credit=="fail") %>%  ggplot(aes(x=.$Credit_history)) +
+p2 <- credit_clear %>% filter(credit_response=="bad") %>%  ggplot(aes(x=.$Credit_history)) +
   ggtitle(" Credit fail")+ geom_bar(fill="red") + 
   scale_y_continuous(limits=c(0,400))+xlab("Credit history")+ ylab("Count") + theme(axis.text.x = element_text(angle = 90))
 
@@ -165,12 +166,12 @@ grid.arrange(p1, p2, ncol = 2)
 
 ```
 
-The analysis next step focuses on *credit_amount*, *personal_status* and *age*. The table shows the proportion of personal status categories: more than half are male singles, the 30% are generally female. The majority of the first have bad credit, although `r  {credit_clear %>% filter(credit_amount >=7500   & personal_status=="male_single" & credit=="pass") %>% count(.)   %>% .$n}` in 1000 is good for credit over 7500 DM as shown in the first plot.
+The analysis next step focuses on *credit_amount*, *personal_status* and *age*. The table shows the proportion of personal status categories: more than half are male singles, the 30% are generally female. The majority of the first have bad credit, although `r  {credit_clear %>% filter(credit_amount >=7500   & personal_status=="male_single" & credit_response=="good") %>% count(.)   %>% .$n}` in 1000 is good for credit over 7500 DM as shown in the first plot.
 The plot age vs personal status does not seem of particular interest, but generally the proportion of females that has "good"" credit is higher than "bad".
 
 ```{r credit_amount_by_personal_stat, echo=FALSE, message=FALSE, warning=FALSE}
 
-credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit)) +
+credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit_response)) +
   ggtitle(" Credit amount by personal status")+ geom_boxplot(varwidth = TRUE) + 
    theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
@@ -178,8 +179,8 @@ credit_clear  %>%  ggplot(aes(x=personal_status,y=credit_amount,fill=credit)) +
 as.data.frame(credit_clear %>% group_by(personal_status) %>% summarize(amount=n())) %>% 
   mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
 
-credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit)) +
-  ggtitle(" age by personal status")+ geom_boxplot(varwidth = TRUE) + 
+credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit_response)) +
+  ggtitle("Age by personal status")+ geom_boxplot(varwidth = TRUE) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 ```
@@ -196,17 +197,18 @@ as.data.frame(credit_clear %>% group_by(employment_since) %>% summarize(Total=n(
 
 #Emplyment history vs credit_amount on job as parameter
 #Unemployed has been kept out, because, as a parameter, is quite irrelevant
-credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(aes(x=employment_since,y=credit_amount,fill=credit)) +
+credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(aes(x=employment_since,y=credit_amount,fill=credit_response)) +
   ggtitle("emplyment-history by credit amount on job parameter")+ geom_boxplot(varwidth = TRUE) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))+
   facet_grid(. ~ job)
 ```
 
-The credit-history is important to figure out the customer trust; The 53% of them are reliable applicants that pay duly existing credits; the 30% are customers with critical account either with other credits in different bank. Anyway, as shown in the table, except for a 6% that has a good bank account, the proportions are fairly partitioned among enough account, negative account, or even with no account.  
-Looking at the *Cheking-account VS duration* plot, except for customers wiith good account, the bank consider "bad" the duration over 25 weeks: i.e. if you have few money for a long time you could not pay the loan duly, the analysis is more detailed if adding in the contest the credit_history parameter. 
-Finally, in the last plot *Credit amount by Cheking-account* It is possible to observe that without a good account It is hard to get a loan over 3000 DM. 
+The credit-history is important to figure out the customer trust; The 53% of them are reliable applicants that pay duly existing credits; the 30% are customers with critical account either with other credits in different bank. Anyway, as shown in the table, except for a 6% that has a good bank account, the proportions are fairly partitioned among enough account, negative account, or even with no account.
+The *credit duration density plot* shows that most of good credit last few weeks, whilst long time credits tend to be not so good.
+Looking at the *Cheking-account VS credit_duration* plot, except for customers with good account, the bank consider "bad" the credit_duration over 25 weeks: i.e. debtors,thin, and  no_accounts are absolutely bad, while good account is trusted as expected. The plot with credit_history parameter shows that existing_paid_duly customers are the most reliable.
+Finally, in the last plot *Credit amount by Cheking-account*  high credit_amount is approved for some with no account, but generally -if not with a good account- bad credit response is prevalent. 
 
-```{r checking_account/duration/history, echo=FALSE, message=FALSE, warning=FALSE}
+```{r checking_account/credit_duration/history, echo=FALSE, message=FALSE, warning=FALSE}
 #Credit_history proportion table
 as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
@@ -215,16 +217,20 @@ as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())
 as.data.frame(credit_clear %>% group_by(checking_account) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
 
-#Cheking-account VS duration
+#Duration density plot 
+ggplot(credit_clear, aes(credit_duration, fill=credit_response)) + 
+  geom_density(alpha=.5)
+
+#Cheking-account VS credit_duration
 credit_clear %>% 
-  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggplot(aes(checking_account, credit_duration, fill=credit_response)) +
   ggtitle("Cheking-account by duration" )+
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-#Cheking-account VS duration on credit_history parameter 
+#Cheking-account VS credit_duration on credit_history parameter 
 credit_clear %>% 
-  ggplot(aes(checking_account, duration, fill=credit)) +
+  ggplot(aes(checking_account, credit_duration, fill=credit_response)) +
   ggtitle("Cheking-account by duration on credit_history parameter")+
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -232,7 +238,7 @@ credit_clear %>%
 
 #Cheking-account VS credit_amount
 credit_clear %>% 
-  ggplot(aes(checking_account, credit_amount, fill=credit)) +
+  ggplot(aes(checking_account, credit_amount, fill=credit_response)) +
   ggtitle("Credit amount by Cheking-account") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
@@ -241,7 +247,7 @@ credit_clear %>%
 As analysis last step, other meaningful attributes vs credit_amount has been illustrated. The saving_accounts proportion table shows that poors are the absolute majority: it is quite normal that who has low savings ( and possibly no other neither little property) tends to ask for a loan.
 The 60% of total ask loans for cars or radio/television.
 In the *Credit amount vs Property on saving-account parameter* the "excellent" saving_account value has been excluded, because it is a very few amount, also "good" and "very good" have very few applicants; poor or no-savings with no-property/unkown have favour but not for high amount.
-The *Credit amount vs age on saving-account parameter* plot shows a different perspective based on age: generally the most of customers are in the 20-45 age rank, anyway who has poor or no-saving could be older. Only a little proportion of poor-saving-customer gets credit over 7500 DM.On the other hand, customers with no or unknown savings have high chance to get positive classification. Seemingly, as savings increase the proportion of good evaluation  increases too regardless age,  anyway the correlation between savings and credit amount is `r  {cor(credit_num$credit_amount,credit_num$savings_account) }` which is too low and it would depend, among others, on different age and saving prportions.   
+The *Credit amount vs age on saving-account parameter* plot shows a different perspective based on age: generally the most of customers are in the 20-45 age rank, anyway who has poor or no-saving could be older. Only a little proportion of poor-saving-customer gets credit over 7500 DM.On the other hand, customers with no or unknown savings have high chance to get positive classification. Seemingly, as savings increase the proportion of good evaluation  increases too regardless age,  anyway the correlation between savings and credit amount is `r  {cor(credit_clear$credit_amount,as.numeric(as.factor(credit_clear$savings_account))) }` which is too low and it would depend, among others, on different age and saving prportions.   
 
 ```{r other/credit_amount/pt1, echo=FALSE, message=FALSE, warning=FALSE}
 #savings_account proportion table
@@ -258,7 +264,7 @@ as.data.frame(credit_clear %>% group_by(purpose) %>% summarize(Total=n())) %>%
 
 #property VS credit_amount based on saving account
 credit_clear %>% filter(savings_account!="excellent") %>%
-  ggplot(aes(property, credit_amount, fill=credit)) +
+  ggplot(aes(property, credit_amount, fill=credit_response)) +
   ggtitle("Credit amount vs Property on saving-account parameter") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -266,7 +272,7 @@ credit_clear %>% filter(savings_account!="excellent") %>%
 
 #age VS credit_amount based on saving amount
 credit_clear %>% 
-  ggplot(aes(age, credit_amount, color=credit)) +
+  ggplot(aes(age, credit_amount, color=credit_response)) +
   ggtitle("Credit amount vs age on saving-account parameter") +
   geom_point() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -289,7 +295,7 @@ The favourite is a "for_free" customer that does not pay any rent or mortgage, e
 
 #purpose VS credit_amount
 credit_clear %>% 
-  ggplot(aes(purpose, credit_amount, fill=credit)) +
+  ggplot(aes(purpose, credit_amount, fill=credit_response)) +
   ggtitle("purpose VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
@@ -297,18 +303,94 @@ credit_clear %>%
   
 #guarantors VS credit_amount 
 credit_clear %>% 
-  ggplot(aes(other_guarantors, credit_amount, fill=credit)) +
+  ggplot(aes(other_guarantors, credit_amount, fill=credit_response)) +
   ggtitle("guarantors VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
   
 #housing VS credit_amount 
 credit_clear %>% 
-  ggplot(aes(housing, credit_amount, fill=credit)) +
+  ggplot(aes(housing, credit_amount, fill=credit_response)) +
   ggtitle("housing VS credit_amount") +
   geom_boxplot(varwidth = TRUE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
    
 
 ```
+
+## The modeling approach
+
+**Preprocessing**
+
+At the end of data exploration, it’s important to inspect the relationship between variables, if two or more of them are correlated, they would give quite same information about prediction, so we should choose only the ones with no redundant information.
+To apply the correlation function, The *credit_original* must be converted in df numeric, i.e. all the factor varaible are transformed in numeric, so we have a *credit_num* dataframe as shown in a glimpse.
+The correlation illustrated graphics show correlation between variables ordered by crrelation rate. That couple that appears most correlated is *duration/credit_amount* whose value is `r  {cor(credit_clear$credit_duration,credit_clear$credit_amount) }`. Next, the related scatterplot that includes smoothing function; as shown, there is a natural straight relationship between amount and duration, the great is the credit the more are instalment (i.e. longer duration) when the credit is bad the tendency looks like quite different; anyway the general tendency seems to be too approximate, so that both shold be considered as independent factors.
+
+```{r Preproc_correlation, echo=FALSE, message=FALSE, warning=FALSE}
+#converting credit_original to a numeric df
+credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) 
+glimpse(credit_num)
+
+library(corrplot)
+#create a visual map showing the correlation values between all variables
+#and is ordered by clustering
+cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
+
+
+#the most correlated variables scatter plot and smoothing
+credit_clear  %>% ggplot(aes(credit_amount,credit_duration, color=credit_response)) +geom_point() + geom_smooth()
+
+
+```
+
+To  further inspect if some variable could be cut out from predictors, caret package *nzv* function is applied. Next, the table that shows detail of function' s computation and the the  'nzv' `r  { nearZeroVar(credit_num, names=TRUE) }` variable that has to be excluded.
+The dataframe credit_clean, from which the nzv  has been removed, is the final dataset to use for modeling approach.
+
+
+
+```{r Preproc_nearZero, echo=FALSE, message=FALSE, warning=FALSE }
+
+nzv <- NULL #initialize variable
+#the nzv function looks for variables that could be cut out from predictors
+nearZeroVar(credit_num, names=TRUE, saveMetrics = TRUE) #returns a detailed table
+nzv <- nearZeroVar(credit_num, names=FALSE) #returns the column index
+if(!is.null(nzv)) #if nzv is consistent ( calculated by function)..
+  credit_clear <- credit_clear[,-nzv]#..cut nrz variable from df 
+
+```
+
+
+
+```{r Preproc_normalize, echo=FALSE, message=FALSE, warning=FALSE}
+
+credit_norm <- credit_clear # a df copy to be normalized 
+col_num <- credit_norm[, sapply(credit_norm,is.numeric)] %>% names(.) #extracts numeric column names
+col_cat <- credit_norm[, sapply(credit_norm,is.character)] %>% names(.) #extracts categorical column names
+
+for (n in col_num) { #scales all numeric variables
+  credit_norm[,n] <- scale(credit_norm[,n])
+  
+}
+for (f in col_cat) { #factorizes all categorical variables
+  credit_norm[,f] <- as.factor(credit_norm[,f])
+}
+
+```
+
+
+```{r Preproc_dataPartition, echo=FALSE, message=FALSE, warning=FALSE}
+
+set.seed(1)
+test_index <- createDataPartition(y = credit_norm$credit_response, times = 1, p = 0.3, list = FALSE)
+german_credit_train <- credit_norm[-test_index,] #70% of total
+german_credit_test <- credit_norm[test_index,] #30% of total
+
+```
+
+
+```{r model_knn, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+
+#######################################################
 
