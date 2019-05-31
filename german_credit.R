@@ -321,7 +321,7 @@ gc_test <- credit_original[test_index,] #70% of total
 li <- which(names(gc_train)=="credit_response") #to get the label variable index
 xtr <- gc_train[,-li] # The predictors train data set
 ytr <- gc_train[21]
-ytr <- factor(ytr[,1])
+ytr <- factor(ytr)
 
 #!test
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@ THE ML MODELING APPROACH @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -336,13 +336,14 @@ label_index <- which(names(german_credit_train)=="credit_response") #to get the 
 x <- german_credit_train[,-label_index] # The predictors train data set
 x<-x[1]
 
+fit_knn <- knn3(xtr, ytr,  k = 5)
 control <- trainControl(method = "cv", number = 10, p = .9)
 model_knn <- train(xtr,
   ytr,
   trControl = control,
-  data=gc_train, method = "knn",
-  metric = "Accuracy",
-  tuneGrid = data.frame(k = seq(1, 4, 2)))
+  data=gc_train, 
+  method = "knn",
+  tuneGrid = data.frame(k = seq(1, 5, 1)))
 
 #Saving the model result
 
