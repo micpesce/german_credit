@@ -292,11 +292,13 @@ for (f in col_cat) { #factorizes all categorical variables
 #<<<<<<<<<<<<<< Normalization (end block) >>>>>>>>>>>>>
 #test
 col_num_orig <- credit_original[, sapply(credit_original,is.numeric)] %>% names(.) #extracts numeric column names
+col_num_orig <- col_num_orig[-(which(col_num_orig=="credit_response"))]
 #col_num_orig <- col_num_orig[, "credit_response"]
 for (n in col_num_orig) { #scales all numeric variables
   credit_original[,n] <- scale(credit_original[,n])
   
 }
+credit_original["credit_response"] <- as.factor(credit_original[,"credit_response"])
 #!test
 
 
@@ -320,7 +322,7 @@ gc_train <- credit_original[-test_index,] #70% of total
 gc_test <- credit_original[test_index,] #70% of total
 li <- which(names(gc_train)=="credit_response") #to get the label variable index
 xtr <- gc_train[,-li] # The predictors train data set
-ytr <- gc_train[21]
+ytr <- gc_train$credit_response
 ytr <- factor(ytr)
 
 #!test
@@ -331,19 +333,23 @@ ytr <- factor(ytr)
 
 # Fit the model on the german_credit_train training set
 set.seed(123)
+x <- german_credit_train[,1:19]
+y <- german_credit_train[,20]
 y <- german_credit_train$credit_response #The classification label to predict
 label_index <- which(names(german_credit_train)=="credit_response") #to get the label variable index
 x <- german_credit_train[,-label_index] # The predictors train data set
-x<-x[1]
 
 fit_knn <- knn3(xtr, ytr,  k = 5)
+train_NB <- train(xtr, ytr, method = 'nb', data = gc_train)
 control <- trainControl(method = "cv", number = 10, p = .9)
 model_knn <- train(xtr,
   ytr,
   trControl = control,
-  data=gc_train, 
   method = "knn",
-  tuneGrid = data.frame(k = seq(1, 5, 1)))
+  tuneGrid = data.frame(k = c(3,5,7)))
+
+
+
 
 #Saving the model result
 
@@ -351,5 +357,56 @@ saveRDS(model_knn, "model_knn.rds")
 
 #######################################################
 
+#@@@@@@@@@@@@@@@ RANDOM TREES (start block)##########
 
+
+
+
+# RF Algorithm Cross Validation to look for mtry best parameter
+metric <- "Accuracy"
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(7)
+train_RF <- train(x,y, data=german_credit_train, method="rf", metric=metric, tuneLength=15, trControl=control)
+print(train_RF) #print results
+plot(train_RF) #plots the accuracy/mtree graphic
+
+best_mtry <- rf_random$bestTune$mtry #model best tune
+
+cm <- confusionMatrix(predict(train_RF,german_credit_test), #saving confusion matrix result
+                german_credit_test$credit_response)
+
+
+#Creating a metrics table
+prediction_results <- data_frame(method = "RF", Accuracy = cm$overall["Accuracy"], Sensitivity=data.frame(cm$byClass["Sensitivity"])[1,1],
+                                 Specificity=data.frame(cm$byClass["Specificity"])[1,1])
+prediction_results%>% knitr::kable()
+
+#mah
+library(pROC)
+plot.roc(aSAH$outcome, aSAH$s100b, percent = TRUE, main = "Smoothing")
+lines(smooth(rocobj), # smoothing (default: binormal)
+      col = "#1c61b6")
+#fine mah
+
+#varImp
+library(randomForest)
+rf <- randomForest(x, y,  ntree = 50)
+imp_RF <- as.data.frame(importance(rf))
+imp_RF <- imp_RF%>% mutate(variable=row.names(imp_RF))
+imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
+
+
+##################ensembles
+
+models <- c( "Rborist", 
+            "avNNet", "mlp", "monmlp",
+            "adaboost", "gbm",
+            "svmRadial", "svmRadialCost", "svmRadialSigma")
+fits <- lapply(models, function(model){ 
+  print(model)
+  train(x,y, method = model, data = german_credit_train)
+}) 
+
+names(fits) <- models
+######################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@

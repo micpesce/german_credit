@@ -388,9 +388,32 @@ german_credit_test <- credit_norm[test_index,] #30% of total
 ```
 
 
-```{r model_knn, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model_rf, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
 
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(7)
+metric <- "Accuracy"
+train_RF <- train(x,y, data=german_credit_train, method="rf", metric=metric, tuneLength=15, trControl=control)
+print(rf_random)
+plot(rf_random)
 
+best_mtry <- rf_random$bestTune$mtry #model best tune
 
+cm <- confusionMatrix(predict(train_RF,german_credit_test), #saving confusion matrix result
+                german_credit_test$credit_response)
+
+#Creating a metrics table
+prediction_results <- data_frame(method = "RF", Accuracy = cm$overall["Accuracy"], Sensitivity=data.frame(cm$byClass["Sensitivity"])[1,1],
+                                 Specificity=data.frame(cm$byClass["Specificity"])[1,1])
+prediction_results%>% knitr::kable()
+
+library(randomForest)
+rf <- randomForest(x, y,  ntree = 50)
+imp_RF <- as.data.frame(importance(rf))
+imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
+
+library(pROC)
+
+order
 #######################################################
 
