@@ -25,7 +25,7 @@ sum(complete.cases(credit_original))
 
 ####@@@@REPLACING coded values with meaningful data 
 
-file.rename("german.doc","german.txt") #renames file to get it readable
+#file.rename("german.doc","german.txt") #renames file to get it readable
 key_map <- readLines("german.txt")
 key_map <- key_map[grepl("A[0-9]", key_map)] #filter rows with coded variable
 key_map <- as.data.frame(key_map)
@@ -340,14 +340,14 @@ label_index <- which(names(german_credit_train)=="credit_response") #to get the 
 x <- german_credit_train[,-label_index] # The predictors train data set
 
 fit_knn <- knn3(xtr, ytr,  k = 5)
-train_NB <- train(xtr, ytr, method = 'nb', data = gc_train)
+train_nb <- train(x, y, method = 'nb', data = german_credit_train)
 control <- trainControl(method = "cv", number = 10, p = .9)
-model_knn <- train(xtr,
-  ytr,
+model_knn <- train(x,
+  y,
   trControl = control,
   method = "knn",
   tuneGrid = data.frame(k = c(3,5,7)))
-
+model_knn <- train(x, y, method = "knn")
 
 
 
@@ -398,15 +398,12 @@ imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
 
 ##################ensembles
 
-models <- c( "Rborist", 
-            "avNNet", "mlp", "monmlp",
-            "adaboost", "gbm",
-            "svmRadial", "svmRadialCost", "svmRadialSigma")
-fits <- lapply(models, function(model){ 
+models2 <- c("glm","ranger",  "naive_bayes",  "adaboost", "gbm", "kknn","gam", "rf","Rborist", "avNNet")
+fits2 <- lapply(models2, function(model){ 
   print(model)
-  train(x,y, method = model, data = german_credit_train)
+  train(x,y, method = model)
 }) 
 
-names(fits) <- models
+names(fits2) <- models2
 ######################
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@
