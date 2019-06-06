@@ -272,7 +272,7 @@ nzv <- nearZeroVar(credit_num, names=TRUE, saveMetrics = TRUE) #returns a detail
 nzv <- nearZeroVar(credit_num, names=FALSE) #returns the column index
 if(!is.null(nzv)) #if nzv is consistent ( calculated by function)..
   credit_clear <- credit_clear[,-nzv]#..cut nrz variable from df 
-
+  credit_num <- credit_num[,-nzv]#..cut nrz variable from df
 #<<<<<<<<<<<<<< correlation and variables selection (end block) >>>>>>>>>>>>>
 
 
@@ -314,7 +314,7 @@ german_credit_test <- credit_norm[test_index,] #30% of total
 
 
 #<<<<<<<<<<<<<< Data partition (end block) >>>>>>>>>>>>>>>
-#test
+#@@@@test
 library(caret)
 set.seed(123)
 test_index <- createDataPartition(y = credit_original$credit_response, times = 1, p = 0.3, list = FALSE)
@@ -328,6 +328,14 @@ ytr <- factor(ytr)
 #!test
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@ THE ML MODELING APPROACH @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+in_out =function(object,items){
+  
+  b <- row.names(object[["importance"]][1])[1:items] %>%
+  c("x",paste(.,collapse="+")) %>% paste0(. ,collapse="~")
+  
+  return(as.formula(x))
+  
+}
 
 #@@@@@@@@@@@@@@@ KNN: CROSS VALIDATION (start block)##########
 
@@ -345,9 +353,9 @@ control <- trainControl(method = "cv", number = 10, p = .9)
 model_knn <- train(x,
   y,
   trControl = control,
-  method = "knn",
+  method = "kknn",
   tuneGrid = data.frame(k = c(3,5,7)))
-model_knn <- train(x, y, method = "knn")
+model_knn <- train(x, y, method = "kknn")
 
 
 
@@ -369,24 +377,36 @@ set.seed(7)
 train_RF <- train(x,y, data=german_credit_train, method="rf", metric=metric, tuneLength=15, trControl=control)
 print(train_RF) #print results
 plot(train_RF) #plots the accuracy/mtree graphic
-
-best_mtry <- rf_random$bestTune$mtry #model best tune
-
-cm <- confusionMatrix(predict(train_RF,german_credit_test), #saving confusion matrix result
-                german_credit_test$credit_response)
+best_mtry <- rtrain_RF$bestTune$mtry #model best tune
 
 
+
+
+rf_fits <- randomForest(x, y,  ntree = 500, mtry=best_mtry )
+rf_pred <- predict(rf_fits, german_credit_test)
+cm_rf <- confusionMatrix(rf_pred,german_credit_test$credit_response) #saving confusion matrix result
 #Creating a metrics table
-prediction_results <- data_frame(method = "RF", Accuracy = cm$overall["Accuracy"], Sensitivity=data.frame(cm$byClass["Sensitivity"])[1,1],
-                                 Specificity=data.frame(cm$byClass["Specificity"])[1,1])
+prediction_results <- data_frame(method = "RF", Accuracy = cm_rf$overall["Accuracy"], Sensitivity=data.frame(cm_rf$byClass["Sensitivity"])[1,1],
+                                 Specificity=data.frame(cm_rf$byClass["Specificity"])[1,1])
 prediction_results%>% knitr::kable()
 
-#mah
 library(pROC)
-plot.roc(aSAH$outcome, aSAH$s100b, percent = TRUE, main = "Smoothing")
-lines(smooth(rocobj), # smoothing (default: binormal)
-      col = "#1c61b6")
-#fine mah
+par(pty="s")
+plot.roc(y,rf_fits$votes[,1],print.auc=TRUE, percent=TRUE,col="#4daf4a")
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(rf_pred),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
+legend("bottomright", legend=c("RF TEST", "RF TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=4)
+imp_RF <- as.data.frame(importance(rf))
+imp_RF <- imp_RF%>% mutate(variable=row.names(imp_RF))
+imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
+
+rf_importance <-varImp(train_RF)
+
+
+
+
+#select the first n factors( ten in this case) concat names by "+" and "~" 
+#and finally transform it to use as first pred/ouput parameter in train function  
+in_out <-as.formula(row.names(rf_importance[["importance"]][1])[1:10] %>% paste(.,collapse="+") %>% c("x",.) %>% paste0(. ,collapse="~"))
 
 #varImp
 library(randomForest)
@@ -397,13 +417,61 @@ imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
 
 
 ##################ensembles
-
-models2 <- c("glm","ranger",  "naive_bayes",  "adaboost", "gbm", "kknn","gam", "rf","Rborist", "avNNet")
-fits2 <- lapply(models2, function(model){ 
+#training and predicting different models
+models_ensemble <- c("glm","ranger",  "naive_bayes",  "adaboost", "gbm", "kknn","gam", "rf", "avNNet")
+fits_ensemble <- lapply(models_ensemble , function(model){ 
   print(model)
   train(x,y, method = model)
 }) 
+names(fits_ensemble) <- models_ensemble
+pred <- sapply(fits_ensemble, function(object) 
+  predict(object, newdata = german_credit_test))
 
-names(fits2) <- models2
+
+
+acc_ensemble <- colMeans(pred == german_credit_test$credit_response) #accuracy for each model
+print(acc_ensemble)
+avg_acc <- mean(acc_ensemble) #and mean
+
+votes <- rowMeans(pred_ensemble == "good") #ensemble prediction  
+y_hat <- ifelse(votes > 0.5, "good", "bad")
+ens_acc <- mean(y_hat == german_credit_test$credit_response) #accuracy of the ensemble
+
+#let's compare individual metods and ensemble
+
+ind <- acc > ens_acc
+sum(ind)
+models2[ind]
 ######################
+
+#####################################KNN TEST NUMERIC
+
+
+credit_original["credit_response"] <- as.factor(credit_original[,"credit_response"])
+
+credit_num <- credit_num %>% mutate(credit_response=ifelse((credit_response==1),"good","bad"))
+credit_num <- credit_num %>% mutate(credit_response=as.factor(credit_response))
+set.seed(123)
+
+col_ <- credit_num[-(which(credit_num=="credit_response"))]
+
+#col_num_orig <- col_num_orig[, "credit_response"]
+for (n in 1:19) { #scales all numeric variables
+  credit_num[,n] <- scale(credit_num[,n])
+  
+}
+test_index <- createDataPartition(y = credit_num$credit_response, times = 1, p = 0.3, list = FALSE)
+credit_num_train <- credit_num[-test_index,] #70% of total
+credit_num_test <- credit_num[test_index,] #30% of total
+
+x_num <- credit_num_train[,1:19]
+y_num <- credit_num_train[,20]
+
+preProcess(x_num, method = c("center", "scale"))
+control <- trainControl(method = "cv", number = 10, p = .9)
+model_knn <- train( x_num, y_num, method = "knn", trControl = control, 
+                   tuneGrid = data.frame(k = c(3,5,7)))
+
+
+#form=y_num ~ .
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@
