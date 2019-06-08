@@ -310,7 +310,8 @@ set.seed(123)
 test_index <- createDataPartition(y = credit_norm$credit_response, times = 1, p = 0.3, list = FALSE)
 german_credit_train <- credit_norm[-test_index,] #70% of total
 german_credit_test <- credit_norm[test_index,] #30% of total
-
+x <- german_credit_train[,1:19] #predictor
+y <- german_credit_train[,20] #outcome
 
 
 #<<<<<<<<<<<<<< Data partition (end block) >>>>>>>>>>>>>>>
@@ -327,41 +328,31 @@ ytr <- factor(ytr)
 
 #!test
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@ THE ML MODELING APPROACH @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-in_out =function(object,items){
-  
-  b <- row.names(object[["importance"]][1])[1:items] %>%
-  c("x",paste(.,collapse="+")) %>% paste0(. ,collapse="~")
-  
-  return(as.formula(x))
-  
-}
-
-#@@@@@@@@@@@@@@@ KNN: CROSS VALIDATION (start block)##########
-
-# Fit the model on the german_credit_train training set
-set.seed(123)
-x <- german_credit_train[,1:19]
-y <- german_credit_train[,20]
-y <- german_credit_train$credit_response #The classification label to predict
-label_index <- which(names(german_credit_train)=="credit_response") #to get the label variable index
-x <- german_credit_train[,-label_index] # The predictors train data set
-
+#models to try: rf, glm, rpart,svg/pca, cart
 fit_knn <- knn3(xtr, ytr,  k = 5)
 train_nb <- train(x, y, method = 'nb', data = german_credit_train)
-control <- trainControl(method = "cv", number = 10, p = .9)
-model_knn <- train(x,
-  y,
-  trControl = control,
-  method = "kknn",
-  tuneGrid = data.frame(k = c(3,5,7)))
-model_knn <- train(x, y, method = "kknn")
 
+#@@@@@@@@@@@@@@@ MODEL GLM (start block)##########
 
+# Fit the model on the german_credit_train training set.
+#No cross validation, for GLM no tuning parameters
+library(stats)
+formula <-as.formula((names(x) %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~")))
+set.seed(123)
+fit_glm <- glm(formula, data=german_credit_train, family="binomial")
+glm_pred <- predict(fit_glm,german_credit_test, type="response") #Prediction as probability
 
+glm_pred <- round(glm_pred)
+y_hat_glm <- factor(ifelse(glm_pred > 0.5, "good", "bad"))#Prediction as factor
+cm_glm <- confusionMatrix(data=y_hat_glm, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-
-saveRDS(model_knn, "model_knn.rds")
+data_frame(method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(cm_glm$byClass["Specificity"])[1,1]) %>% knitr::kable()
+library(pROC)
+par(pty="s")
+plot.roc(y,fit_glm$fitted.values,print.auc=TRUE, percent=TRUE,col="#4daf4a")
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(y_hat_glm),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
+legend("bottomright", legend=c("GLM TEST", "GLM TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=8)
 
 #######################################################
 
@@ -382,9 +373,9 @@ best_mtry <- rtrain_RF$bestTune$mtry #model best tune
 
 
 
-rf_fits <- randomForest(x, y,  ntree = 500, mtry=best_mtry )
+rf_fits <- randomForest(x, y,  ntree = 500, mtry=best_mtry ) #fits using best tuning
 rf_pred <- predict(rf_fits, german_credit_test)
-cm_rf <- confusionMatrix(rf_pred,german_credit_test$credit_response) #saving confusion matrix result
+cm_rf <- confusionMatrix(rf_pred,german_credit_test$credit_response,positive = "good") #saving confusion matrix result
 #Creating a metrics table
 prediction_results <- data_frame(method = "RF", Accuracy = cm_rf$overall["Accuracy"], Sensitivity=data.frame(cm_rf$byClass["Sensitivity"])[1,1],
                                  Specificity=data.frame(cm_rf$byClass["Specificity"])[1,1])
@@ -394,7 +385,7 @@ library(pROC)
 par(pty="s")
 plot.roc(y,rf_fits$votes[,1],print.auc=TRUE, percent=TRUE,col="#4daf4a")
 plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(rf_pred),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
-legend("bottomright", legend=c("RF TEST", "RF TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=4)
+legend("bottomright", legend=c("RF TEST", "RF TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=8)
 imp_RF <- as.data.frame(importance(rf))
 imp_RF <- imp_RF%>% mutate(variable=row.names(imp_RF))
 imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
@@ -415,7 +406,20 @@ imp_RF <- as.data.frame(importance(rf))
 imp_RF <- imp_RF%>% mutate(variable=row.names(imp_RF))
 imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
 
+#@@@@@@@@@@@@@@@ MODEL RPART (start block)##########
+library(rpart)
+rp_fit <- rpart(formula=formula,
+      method="class",data=german_credit_train,control =
+        rpart.control(minsplit=20, cp=0.05))
+set.seed(7)
+train_rpart <- train(x, y, 
+                     method = 'rpart',
+                     metric = 'Accuracy',
+                     tuneGrid = data.frame(cp = seq(0, 0.05, len = 25))
+                     )
+ggplot(train_rpart)
 
+#@@@@@@@@@@@@@@@ MODEL RPART (end block)##########
 ##################ensembles
 #training and predicting different models
 models_ensemble <- c("glm","ranger",  "naive_bayes",  "adaboost", "gbm", "kknn","gam", "rf", "avNNet")
