@@ -340,35 +340,35 @@ library(stats)
 formula <-as.formula((names(x) %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~")))
 set.seed(123)
 fit_glm <- glm(formula, data=german_credit_train, family="binomial")
-glm_pred <- predict(fit_glm,german_credit_test, type="response") #Prediction as probability
+glm_pred_prob <- predict(fit_glm,german_credit_test, type="response") #Prediction as probability
 
-glm_pred <- round(glm_pred)
-y_hat_glm <- factor(ifelse(glm_pred > 0.5, "good", "bad"))#Prediction as factor
-cm_glm <- confusionMatrix(data=y_hat_glm, reference=german_credit_test$credit_response,positive = "good")
+glm_pred_prob <- round(glm_pred_prob)
+glm_pred <- factor(ifelse(glm_pred_prob > 0.5, "good", "bad"))#Prediction as factor
+cm_glm <- confusionMatrix(data=glm_pred, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
 data_frame(method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(cm_glm$byClass["Specificity"])[1,1]) %>% knitr::kable()
 library(pROC)
 par(pty="s")
 plot.roc(y,fit_glm$fitted.values,print.auc=TRUE, percent=TRUE,col="#4daf4a")
-plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(y_hat_glm),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(glm_pred),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
 legend("bottomright", legend=c("GLM TEST", "GLM TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=8)
 
-#######################################################
+
+
+#@@@@@@@@@@@@@@@ MODEL GLM (end block)##########
 
 #@@@@@@@@@@@@@@@ RANDOM TREES (start block)##########
-
-
-
 
 # RF Algorithm Cross Validation to look for mtry best parameter
 metric <- "Accuracy"
 control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
 set.seed(7)
-train_RF <- train(x,y, data=german_credit_train, method="rf", metric=metric, tuneLength=15, trControl=control)
+train_RF <- train(x,y, data=german_credit_train, method="rf",
+                  metric=metric, tuneLength=15, trControl=control)
 print(train_RF) #print results
 plot(train_RF) #plots the accuracy/mtree graphic
-best_mtry <- rtrain_RF$bestTune$mtry #model best tune
+best_mtry <- train_RF$bestTune$mtry #model best tune
 
 
 
@@ -386,40 +386,72 @@ par(pty="s")
 plot.roc(y,rf_fits$votes[,1],print.auc=TRUE, percent=TRUE,col="#4daf4a")
 plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(rf_pred),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
 legend("bottomright", legend=c("RF TEST", "RF TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=8)
-imp_RF <- as.data.frame(importance(rf))
-imp_RF <- imp_RF%>% mutate(variable=row.names(imp_RF))
-imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
-
-rf_importance <-varImp(train_RF)
 
 
 
+
+
+rf_importance <- varImp(train_RF) %>% .$importance 
+rf_importance <- rf_importance%>% mutate(variable=row.names(rf_importance)) %>%  filter(., Overall >25) %>% .$variable
+plot(varImp(train_RF))
 
 #select the first n factors( ten in this case) concat names by "+" and "~" 
 #and finally transform it to use as first pred/ouput parameter in train function  
-in_out <-as.formula(row.names(rf_importance[["importance"]][1])[1:10] %>% paste(.,collapse="+") %>% c("x",.) %>% paste0(. ,collapse="~"))
+formula <-as.formula(rf_importance %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~"))
 
-#varImp
-library(randomForest)
-rf <- randomForest(x, y,  ntree = 50)
-imp_RF <- as.data.frame(importance(rf))
-imp_RF <- imp_RF%>% mutate(variable=row.names(imp_RF))
-imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
+train_rf_imp <- randomForest(formula, data=german_credit_train, ntree = 500, mtry=best_mtry )  #training model with the subset importance variable
+rf_pred_imp <- predict(train_rf_imp,german_credit_test)   #test data prediction 
+cm_rf_imp <- confusionMatrix(rf_pred_imp, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+data_frame(method = "RF_IMP", Accuracy = cm_rf_imp$overall["Accuracy"], Sensitivity=data.frame(cm_rf_imp$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(cm_rf_imp$byClass["Specificity"])[1,1]) %>% knitr::kable()
+
+
+#@@@@@@@@@@@@@@@ RANDOM TREES (end block)##########
 
 #@@@@@@@@@@@@@@@ MODEL RPART (start block)##########
 library(rpart)
-rp_fit <- rpart(formula=formula,
-      method="class",data=german_credit_train,control =
-        rpart.control(minsplit=20, cp=0.05))
-set.seed(7)
+
+set.seed(1234)
 train_rpart <- train(x, y, 
                      method = 'rpart',
                      metric = 'Accuracy',
                      tuneGrid = data.frame(cp = seq(0, 0.05, len = 25))
-                     )
+)
 ggplot(train_rpart)
+best_mtry <- train_rpart$bestTune$cp #model best tune for rpart (cp parameter)
+
+
+rpart_pred <- predict(train_rpart,german_credit_test)   #test data prediction 
+rpart_train_prediction <- predict(train_rpart,type = "prob") %>% .$good #train data prediction for ROC curve
+
+cm_rpart <- confusionMatrix(rpart_pred, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+data_frame(method = "RPART", Accuracy = cm_rpart$overall["Accuracy"], Sensitivity=data.frame(cm_rpart$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(cm_rpart$byClass["Specificity"])[1,1]) %>% knitr::kable()
+rpart_pred <- predict(train_rpart,german_credit_test, type = "prob")  %>% .$good #test data prediction for ROC curve
+library(pROC)
+par(pty="s")
+plot.roc(y,rpart_train_prediction,print.auc=TRUE, percent=TRUE,col="#4daf4a")
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(rpart_pred),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="#377eb8", add=TRUE)
+legend("bottomright", legend=c("RPART TEST", "RPART TRAIN"), col=c("#377eb8", "#4daf4a"), lwd=8)
+
+#varable importance analysis
+plot(varImp(train_rpart))
+#select variables whose importance is greater than zero and arrange them in a formula
+imp_rpart <- varImp(train_rpart) %>% .$importance 
+imp_rpart%>% mutate(variable=row.names(imp_rpart)) %>%  filter(., Overall >0) %>% .$variable
+formula <-as.formula((imp_rpart %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~")))
+train_rpart_imp <- rpart(formula,data=german_credit_train,control=rpart.control(minsplit=2, cp=best_mtry), method = "class") #training model with the subset importance variable
+rpart_pred_imp <- predict(train_rpart_imp,german_credit_test)   #test data prediction 
+rpart_pred_imp <- as.factor( ifelse (rpart_pred_imp[,2]>0.5, "good","bad"))
+cm_rpart_imp <- confusionMatrix(rpart_pred_imp, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+data_frame(method = "RPART_IMP", Accuracy = cm_rpart_imp$overall["Accuracy"], Sensitivity=data.frame(cm_rpart_imp$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(cm_rpart_imp$byClass["Specificity"])[1,1]) %>% knitr::kable()
 
 #@@@@@@@@@@@@@@@ MODEL RPART (end block)##########
+
 ##################ensembles
 #training and predicting different models
 models_ensemble <- c("glm","ranger",  "naive_bayes",  "adaboost", "gbm", "kknn","gam", "rf", "avNNet")
