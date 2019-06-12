@@ -511,3 +511,39 @@ model_knn <- train( x_num, y_num, method = "knn", trControl = control,
 
 #form=y_num ~ .
 #@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+#@@@@@@@@@@@@@@@ MODEL NAIVE_BAYES(start block)##########
+# set up tuning grid
+train_control <- trainControl(
+  method = "cv", 
+  number = 10
+)
+search_grid <- expand.grid(
+  usekernel = c(TRUE, FALSE),
+  laplace = 0:5,
+  adjust = seq(0, 5, by = 1)
+)
+
+# train model
+nb.m2 <- train(
+  x = x,
+  y = y,
+  method = "naive_bayes",
+  trControl = train_control,
+  tuneGrid = search_grid,
+  preProc = c("BoxCox", "center", "scale", "pca")
+)
+pred <- predict(nb.m2, newdata = german_credit_test)
+confusionMatrix(pred, german_credit_test$credit_response)
+plot(varImp(nb.m2))
+
+nb.def <- train(
+  y~checking_account+Credit_history,
+  data=german_credit_train,
+  method = "naive_bayes",
+  trControl = train_control,
+  tuneGrid = search_grid,
+  preProc = c("BoxCox", "center", "scale", "pca")
+)
+
+#@@@@@@@@@@@@@@@ MODEL NAIVE_BAYES(end block)##########
