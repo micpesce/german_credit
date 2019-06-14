@@ -2,7 +2,10 @@
 title: "german_credit"
 author: "Michele Pesce"
 date: "14 maggio 2019"
-output: pdf_document
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, eval=TRUE, include=FALSE}
@@ -15,6 +18,7 @@ library(ggplot2)
 library(readtext)
 library(graphics)
 library(caret)
+library(randomForest)
 #Retrieving the row original dataset 
 credit_original <- read.csv("german.data", header=FALSE, sep = " ")
 #Metadata definition and assignment
@@ -344,7 +348,7 @@ credit_clear  %>% ggplot(aes(credit_amount,credit_duration, color=credit_respons
 ```
 
 To  further inspect if some variable could be cut out from predictors, caret package *nzv* function is applied. Next, the table that shows detail of function' s computation and the the  'nzv' `r  { nearZeroVar(credit_num, names=TRUE) }` variable that has to be excluded.
-The dataframe credit_clean, from which the nzv  has been removed, is the final dataset to use for modeling approach.
+The dataframe credit_clean, from which the nzv  has been removed, is the final dataset to use for modeling approach, while the normalized *credit_num* dataset is used as input for PC Analysis.
 
 
 
@@ -359,7 +363,7 @@ if(!is.null(nzv)) #if nzv is consistent ( calculated by function)..
 
 ```
 
-
+The goal of *normalization* is to change the values of numeric columns in the dataset to a common scale, without distorting differences in the ranges of values. For machine learning, every dataset does not require normalization. It is required only when features have different ranges. In the german credit dataset all the numeric variables are scaled and centered, while the factors have levels, that are numerical representations of classes.
 
 ```{r Preproc_normalize, echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -377,6 +381,8 @@ for (f in col_cat) { #factorizes all categorical variables
 
 ```
 
+The last step before applying ML models, is to partition the preprocessed dataset: the 70% of the entire datset as train set and the 30% for test set;  the train has been split in   the vector outcome (the *credit_response* variable as *y*)  and the nineteen predictor variables as *x*
+
 
 ```{r Preproc_dataPartition, echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -384,36 +390,245 @@ set.seed(1)
 test_index <- createDataPartition(y = credit_norm$credit_response, times = 1, p = 0.3, list = FALSE)
 german_credit_train <- credit_norm[-test_index,] #70% of total
 german_credit_test <- credit_norm[test_index,] #30% of total
+x <- german_credit_train[,1:19] #predictors
+y <- german_credit_train[,20] #outcome
+
+```
+
+**ML models** 
+The following Machine learning algorithms have been chosen to fit train data and predict outcome on test data. These are among the most used, and fit quite well with the dataset; on the other hand the *knn* does not because it is not particularly effective on variables where there is a luck of hierarchical relationship between levels or numbers, so ithas not be chosen as model.  
+
+-	**GLM**
+-	**Random Forest**
+-	**Rpart**
+-	**Naive bayes**
+
+To explore the variable reduction approach, in the end of section the PCA model has been also inspected.
+
+
+**GLM**
+This model works by trying to find out the relationship between the class variable and the other independent feature variables by estimating probabilities. Glm does not predict classes directly but the probability of the
+outcome, so that for the metrics evaluation the probability is converted in outcome classes. In this case, since this is  a binary classification problem, the approach is by binomial logistic regression. This model does not require cross validation because there are not parameters to tune.
+
+```{r model_GLM,  echo=FALSE, message=FALSE, warning=FALSE}
+ #Fit the model on the german_credit_train training set.
+#No cross validation, for GLM no tuning parameters
+library(stats)
+formula <-as.formula((names(x) %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~")))
+set.seed(1234)
+fit_glm <- glm(formula, data=german_credit_train, family="binomial")
+glm_pred_prob <- predict(fit_glm,german_credit_test, type="response") #Prediction as probability
+
+glm_pred_prob <- round(glm_pred_prob)
+glm_pred <- factor(ifelse(glm_pred_prob > 0.5, "good", "bad"))#Prediction as factor
+cm_glm <- confusionMatrix(data=glm_pred, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+tab.glm <- data_frame(method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(cm_glm$byClass["Specificity"])[1,1])
+
+print( knitr::kable(tab.glm))
 
 ```
 
 
-```{r model_rf, eval=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model_RF_train, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 
-control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
-set.seed(7)
+# RF Algorithm Cross Validation to look for mtry best parameter
 metric <- "Accuracy"
-train_RF <- train(x,y, data=german_credit_train, method="rf", metric=metric, tuneLength=15, trControl=control)
-print(rf_random)
-plot(rf_random)
+control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+set.seed(123)
+rf.train <- train(x,y, data=german_credit_train, method="rf",
+                  metric=metric, tuneLength=15, trControl=control)
+#print(rf.train) #print results
+plot(rf.train, main="Random forest cross-validation") #plots the accuracy/mtree graphic
+rf.best_mtry <- rf.train$bestTune$mtry #model best tune
 
-best_mtry <- rf_random$bestTune$mtry #model best tune
-
-cm <- confusionMatrix(predict(train_RF,german_credit_test), #saving confusion matrix result
-                german_credit_test$credit_response)
-
+set.seed(123)
+rf.fits.all <- randomForest(x, y,  ntree = 500, mtry=rf.best_mtry ) #fits using best tuning
+rf.pred.all <- predict(rf.fits.all, german_credit_test) #predict with all factors
+rf.cm <- confusionMatrix(rf.pred.all,german_credit_test$credit_response,positive = "good") #saving confusion matrix result
 #Creating a metrics table
-prediction_results <- data_frame(method = "RF", Accuracy = cm$overall["Accuracy"], Sensitivity=data.frame(cm$byClass["Sensitivity"])[1,1],
-                                 Specificity=data.frame(cm$byClass["Specificity"])[1,1])
-prediction_results%>% knitr::kable()
+tab.rf <- data_frame(method = "RF", Accuracy = rf.cm$overall["Accuracy"], Sensitivity=data.frame(rf.cm$byClass["Sensitivity"])[1,1],
+                                 Specificity=data.frame(rf.cm$byClass["Specificity"])[1,1])  
+print(knitr::kable(tab.rf))
 
-library(randomForest)
-rf <- randomForest(x, y,  ntree = 50)
-imp_RF <- as.data.frame(importance(rf))
-imp_RF[order(imp_RF$MeanDecreaseGini, decreasing = TRUE), ]
 
+#fitting using the most important variable for the rf model
+rf.importance <- varImp(rf.train) %>% .$importance 
+rf.importance <- rf.importance%>% mutate(variable=row.names(rf.importance)) %>%  filter(., Overall >25) %>% .$variable
+plot(varImp(rf.train), main="Random forest model: variable importance")
+
+#select the first n factors( ten in this case) concat names by "+" and "~" 
+#and finally transform it to use as first pred/ouput parameter in train function  
+rf.formula <-as.formula(rf.importance %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~"))
+set.seed(123)
+rf.fits.imp <- randomForest(rf.formula, data=german_credit_train, ntree = 500, mtry=rf.best_mtry )  #training model with the subset importance variable
+rf.pred.imp <- predict(rf.fits.imp,german_credit_test)   #test data prediction 
+rf.cm.imp <- confusionMatrix(rf.pred.imp, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+tab.rf_imp <- data_frame(method = "RF_IMP", Accuracy = rf.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rf.cm.imp$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(rf.cm.imp$byClass["Specificity"])[1,1]) 
+
+print(knitr::kable(tab.rf_imp))
+
+```
+
+```{r model_RF_tEST, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+
+
+```{r model_RPart,  echo=FALSE, message=FALSE, warning=FALSE}
+
+set.seed(1234)
+rpart.train <- train(x, y, 
+                     method = 'rpart',
+                     metric = 'Accuracy',
+                     tuneGrid = data.frame(cp = seq(0, 0.05, len = 25))
+)
+
+plot(rpart.train, main="Rpart cross-validation")
+
+rpart.best_mtry <- rpart.train$bestTune$cp #model best tune for rpart (cp parameter)
+
+
+rpart.pred.all<- predict(rpart.train,german_credit_test)   #test data prediction 
+
+rpart.cm <- confusionMatrix(rpart.pred.all, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+tab.rpart <- data_frame(method = "RPART", Accuracy = rpart.cm$overall["Accuracy"], Sensitivity=data.frame(rpart.cm$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(rpart.cm$byClass["Specificity"])[1,1]) 
+#rpart_pred <- predict(train_rpart,german_credit_test, type = "prob")  %>% .$good #test data prediction for ROC curve
+
+print(knitr::kable(tab.rpart))
+
+#varable importance analysis
+plot(varImp(rpart.train), main="Rpart model: variable importance")
+#select variables whose importance is greater than zero and arrange them in a formula
+rpart.imp <- varImp(rpart.train) %>% .$importance 
+rpart.imp <- rpart.imp%>% mutate(variable=row.names(rpart.imp)) %>%  filter(., Overall >0) %>% .$variable
+
+rpart.impIndexes <- names(x) %in% rpart.imp
+rpart.dataImp <- x[rpart.impIndexes]
+
+set.seed(1234)
+rpart.fits.imp <- train(rpart.dataImp, y, 
+                     method = 'rpart',
+                     metric = 'Accuracy',
+                     tuneGrid = data.frame(cp = seq(0, 0.05, len = 25))
+)
+
+
+rpart.pred.imp <- predict(rpart.fits.imp,german_credit_test)   #test data prediction 
+rpart.cm.imp <- confusionMatrix(rpart.pred.imp, reference=german_credit_test$credit_response,positive = "good")
+#Saving the model result
+tab.rpart_imp <- data_frame(method = "RPART_IMP", Accuracy = rpart.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rpart.cm.imp$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(rpart.cm.imp$byClass["Specificity"])[1,1])
+print(knitr::kable(tab.rpart_imp))
+
+```
+
+```{r model_NaiveBayes, echo=FALSE, message=FALSE, warning=FALSE}
+train_control <- trainControl(
+  method = "cv", 
+  number = 10
+)
+search_grid <- expand.grid( #tuning parameters
+  usekernel = c(TRUE, FALSE),
+  laplace = 0:5,
+  adjust = seq(0, 5, by = 1)
+)
+
+# train model
+nb.fit.all <- train(  #fits with all variables
+  x = x,
+  y = y,
+  method = "naive_bayes",
+  trControl = train_control,
+  tuneGrid = search_grid
+  )
+
+nb.pred.all <- predict(nb.fit.all, newdata = german_credit_test) #predicts with all vatiables
+nb.cm <- confusionMatrix(nb.pred.all, german_credit_test$credit_response,positive = "good")
+
+tab.nb <- data_frame(method = "NB", Accuracy =nb.cm$overall["Accuracy"], Sensitivity=data.frame(nb.cm$byClass["Sensitivity"])[1,1],
+           Specificity=data.frame(nb.cm$byClass["Specificity"])[1,1]) 
+
+print(knitr::kable(tab.nb))
+
+plot(varImp(nb.fit.all),  main="Naive bayes: variable importance")
+
+
+
+#the next code chunk selects the predictors whose importance is >25 
+#and creates a new df whose variables are only the selected ones 
+nb.importance <- varImp(nb.fit.all) %>% .$importance 
+nb.importance <- nb.importance%>% mutate(variable=row.names(nb.importance)) %>%  filter(., good >30) %>% .$variable
+nb.impIndexes <- names(x) %in% nb.importance 
+nb.dataImp <- x[nb.impIndexes]
+
+###re-fitting using variable importance
+nb.fit.varimp <- train( # train a model using only the "varimp>25" df
+  nb.dataImp,y,
+  method = "naive_bayes",
+  trControl = train_control,
+  tuneGrid = search_grid
+  )
+
+nb.pred.imp <- predict(nb.fit.varimp, newdata = german_credit_test)
+nb.cm.imp <- confusionMatrix(nb.pred.imp, german_credit_test$credit_response,positive = "good")
+
+tab.nb_imp <- data_frame(method = "NB-IMP", Accuracy =nb.cm.imp$overall["Accuracy"], Sensitivity=data.frame(nb.cm.imp$byClass["Sensitivity"])[1,1],
+                     Specificity=data.frame(nb.cm.imp$byClass["Specificity"])[1,1]) 
+
+print(knitr::kable(tab.nb_imp))
+
+```
+ PCA
+
+```{r  pcaEval,  echo=FALSE, message=TRUE,warning=TRUE}
+# first of all, the matrix must be normalized 
+z <- apply(as.matrix(credit_num[,1:19]),2, scale) 
+
+#then apply the PCA function
+pca <- prcomp(z) #pc of numeric version of german_credit dataset
+pca.summary <- summary(pca)
+print(pca.summary)
+proportion.variance <- pca.summary$importance[2,] # select vector of  variance proportion by PCx
+proportion.cumulative <- pca.summary$importance[3,] #select vector of cumulative proportion  by PCx
+
+#plot the proportions
+plot(proportion.cumulative, type="l",xlab="PCs",ylab="Cumulative Proportion",main = "PCA: Cumulative trend")
+plot(proportion.variance, type="b",  xlab="PCs",ylab="Variance Proportion",main = "PCA: Variance distribution")
+
+#the three principal components ( PC1,PC2,PC3)
+pr_comp <- round(sum(proportion.variance[1:3])*100)
+
+print(pr_comp)
+
+```
+
+
+
+```{r Results,  echo=FALSE, message=FALSE,warning=FALSE}
+#the cumulative auc curve for each model
 library(pROC)
+par(pty="s")
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(glm_pred),print.auc=TRUE, percent=TRUE,print.auc.y=50,col="red")
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(rf.pred.all),print.auc=TRUE, percent=TRUE,print.auc.y=45,col="blue", add=TRUE)
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(rpart.pred.all),print.auc=TRUE, percent=TRUE,print.auc.y=40,col="green", add=TRUE)
+plot.roc(as.ordered(german_credit_test$credit_response),as.ordered(nb.pred.all),print.auc=TRUE, percent=TRUE,print.auc.y=35,col="brown", add=TRUE)
+legend("bottomright",y.intersp=0.6, legend=c("GLM","RF", "RPART","NB"), col=c("red", "blue","green", "brown"), lwd=2)
 
-order
-#######################################################
+#Next code chunk binds all the models results in a one-shot table, and then prints output
+tab.complete <- tab.glm
+tab.entry <- list(tab.rf,tab.rf_imp,tab.rpart,tab.rpart_imp,tab.nb,tab.nb_imp)
+for(tab.record in tab.entry){
+  
+  tab.complete <- bind_rows(tab.complete,tab.record)
+}
+
+print(knitr::kable(tab.complete))
+
+```
 
