@@ -60,12 +60,7 @@ for (i in 2:length(names(credit_original))) { #calculate unique values for each 
 unique_values %>% knitr::kable()
 
 
-#<<<<<<<<<<<<<<credit admission plot>>>>>>>>>>>>>>>>>>>
-qplot(credit_clear$credit_response, geom="bar",
-      fill=I('gray'), col=I('black'),
-      xlab = "Credit response" , ylab = "Count" )
 
-#<<<<<<<<<<<<<<credit response plot>>>>>>>>>>>>>>>>>>>
 
 
 
@@ -362,7 +357,7 @@ plot(varImp(rf.train), main="Random forest model: variable importance")
 #and finally transform it to use as first pred/ouput parameter in train function  
 rf.formula <-as.formula(rf.importance %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~"))
 
-rf.fits.imp <- randomForest(rf.formula, data=german_credit_train, ntree = 500, mtry=best_mtry )  #training model with the subset importance variable
+rf.fits.imp <- randomForest(rf.formula, data=german_credit_train, ntree = 500, mtry=rf.best_mtry )  #training model with the subset importance variable
 rf.pred.imp <- predict(rf.fits.imp,german_credit_test)   #test data prediction 
 rf.cm.imp <- confusionMatrix(rf.pred.imp, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
@@ -445,6 +440,7 @@ nb.fit.all <- train(  #fits with all variables
   tuneGrid = search_grid
   )
 
+#prediction and metrics using all variables
 nb.pred.all <- predict(nb.fit.all, newdata = german_credit_test) #predicts with all vatiables
 nb.cm <- confusionMatrix(nb.pred.all, german_credit_test$credit_response,positive = "good")
 
@@ -457,21 +453,22 @@ plot(varImp(nb.fit.all),  main="Naive bayes: variable importance")
 
 
 
-#the next code chunk selects the predictors whose importance is >25 
-#and creates a new df whose variables are only the selected ones 
+#the next code chunk selects the predictors whose importance is >30
+#and creates a new df whose variables are only the five most important
 nb.importance <- varImp(nb.fit.all) %>% .$importance 
 nb.importance <- nb.importance%>% mutate(variable=row.names(nb.importance)) %>%  filter(., good >30) %>% .$variable
 nb.impIndexes <- names(x) %in% nb.importance 
 nb.dataImp <- x[nb.impIndexes]
 
 ###re-fitting using variable importance
-nb.fit.varimp <- train( # train a model using only the "varimp>25" df
+nb.fit.varimp <- train( # train a model using only the "varimp>30" df
   nb.dataImp,y,
   method = "naive_bayes",
   trControl = train_control,
   tuneGrid = search_grid
   )
 
+#prediction and metrics using all the five most important variables
 nb.pred.imp <- predict(nb.fit.varimp, newdata = german_credit_test)
 nb.cm.imp <- confusionMatrix(nb.pred.imp, german_credit_test$credit_response,positive = "good")
 
