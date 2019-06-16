@@ -453,7 +453,7 @@ Random forest is  a machine learning algorithm that comes from the family of ens
 basically sampling with replacement. The randomness of the algorithm increases the bias of the model slightly but decreases the variance and then prevents overfitting. The first approach takes into account all the variables, the second only a subset of them chosen after variable importance computed by cross-validated training 
 
 
-```{r model_RF_train, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model_RF, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 
 # RF Algorithm Cross Validation to look for mtry best parameter
 if(TRUE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
