@@ -8,8 +8,8 @@ The  file "german_credit.pdf" runs on knit german_credit.RMD file. The "rfTrain.
 
 If you want to to speed-up rendering PDF file, copy rfTrain.RDS and rpartTrain.RDS on your local project repository, then change the code in the german_credit.RMD file as follow:
 
--Set FALSE in the IF statement on rows 455, 522
--Set TRUE  in the IF statement on rows 464, 529
+-Set FALSE in the IF condition on rows 455, 522
+-Set TRUE  in the IF condition on rows 464, 529
     
     
 For any info: Michele Pesce
