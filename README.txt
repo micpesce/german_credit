@@ -14,4 +14,6 @@ If you want to to speed-up rendering PDF file, copy rfTrain.RDS and rpartTrain.R
     
 For any info: Michele Pesce
 
-micpes@gmail.com    ###################
+micpes@gmail.com 
+
+###################
