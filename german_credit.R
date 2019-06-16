@@ -212,7 +212,7 @@ credit_clear %>% filter(savings_account!="excellent") %>%
 
 #age VS credit_amount based on saving amount
 credit_clear %>% 
-  ggplot(aes(age, credit_amount, color=credit)) +
+  ggplot(aes(age, credit_amount, color=credit_response)) +
   ggtitle("Credit amount vs age on saving-account parameter") +
   geom_point() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -260,7 +260,7 @@ cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
 #The couple of variables most correlated
 cor(credit_num$credit_duration,credit_num$credit_amount)
 #the most correlated variables scatter plot and smoothing
-credit_clear  %>% ggplot(aes(credit_amount,credit_duration, color=credit)) +geom_point() + geom_smooth()
+credit_clear  %>% ggplot(aes(credit_amount,credit_duration, color=credit_response)) +geom_point() + geom_smooth()
 
 
 library(caret)
@@ -293,7 +293,7 @@ for (f in col_cat) { #factorizes all categorical variables
 #<<<<<<<<<<<<<< Data partition (start block) >>>>>>>>>>>>>
 
 
-set.seed(123)
+set.seed(1234)
 test_index <- createDataPartition(y = credit_norm$credit_response, times = 1, p = 0.3, list = FALSE)
 german_credit_train <- credit_norm[-test_index,] #70% of total
 german_credit_test <- credit_norm[test_index,] #30% of total
@@ -335,6 +335,8 @@ control <- trainControl(method="repeatedcv", number=10, repeats=3, search="rando
 set.seed(1234)
 rf.train <- train(x,y, data=german_credit_train, method="rf",
                   metric=metric, tuneLength=15, trControl=control)
+
+
 print(rf.train) #print results
 plot(rf.train, main="Random forest cross-validation") #plots the accuracy/mtree graphic
 rf.best_mtry <- rf.train$bestTune$mtry #model best tune
@@ -371,13 +373,13 @@ print(knitr::kable(tab.rf_imp))
 
 
 set.seed(1234)
-rpart.train <- train(x, y, 
+rpart.train <- train(x, y,
                      method = 'rpart',
                      metric = 'Accuracy',
                      tuneGrid = data.frame(cp = seq(0, 0.05, len = 25))
 )
-title(main = "RPart cross validation")
-plot(rpart.train, main="Rpart cross-validation")
+
+plot(rpart.train, main = "Rpart cross-validation")
 
 rpart.best_mtry <- rpart.train$bestTune$cp #model best tune for rpart (cp parameter)
 
@@ -394,9 +396,9 @@ print(knitr::kable(tab.rpart))
 
 #varable importance analysis
 plot(varImp(rpart.train), main="Rpart model: variable importance")
-#select variables whose importance is greater than zero and arrange them in a formula
+#select variables whose importance is greater than seventy
 rpart.imp <- varImp(rpart.train) %>% .$importance 
-rpart.imp <- rpart.imp%>% mutate(variable=row.names(rpart.imp)) %>%  filter(., Overall >0) %>% .$variable
+rpart.imp <- rpart.imp%>% mutate(variable=row.names(rpart.imp)) %>%  filter(., Overall >70) %>% .$variable
 
 rpart.impIndexes <- names(x) %in% rpart.imp
 rpart.dataImp <- x[rpart.impIndexes]
@@ -409,9 +411,9 @@ rpart.fits.imp <- train(rpart.dataImp, y,
 )
 
 
-rpart.pred.imp <- predict(rpart.fits.imp,german_credit_test)   #test data prediction 
+rpart.pred.imp <- predict(rpart.fits.imp,german_credit_test)   #test data prediction on selected variable by importance
 rpart.cm.imp <- confusionMatrix(rpart.pred.imp, reference=german_credit_test$credit_response,positive = "good")
-#Saving the model result
+#Saving the model result for model by variable importance
 tab.rpart_imp <- data_frame(Method = "RPART_IMP", Accuracy = rpart.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rpart.cm.imp$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rpart.cm.imp$byClass["Specificity"])[1,1])
 print(knitr::kable(tab.rpart_imp))

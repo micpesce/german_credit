@@ -3,7 +3,11 @@ title: "German_credit"
 author: "Michele Pesce"
 date: "16 giugno 2019"
 output:
-  pdf_document: default
+  pdf_document: 
+    fig_caption: yes
+    keep_tex: yes
+    number_sections: yes
+    toc: yes
   html_document:
     df_print: paged
 ---
@@ -391,7 +395,7 @@ The last step before applying ML models, is to partition the preprocessed datase
 
 ```{r Preproc_dataPartition, echo=FALSE, message=FALSE, warning=FALSE}
 
-set.seed(1)
+set.seed(1234)
 test_index <- createDataPartition(y = credit_norm$credit_response, times = 1, p = 0.3, list = FALSE)
 german_credit_train <- credit_norm[-test_index,] #70% of total
 german_credit_test <- credit_norm[test_index,] #30% of total
@@ -438,7 +442,7 @@ knitr::kable(tab.glm)
 ```
 
 
-The table above shows the summarized metrics: the accuracy is not   excellent. The sensitivity is good, the specificity is good too, so the FPR=`r {1-cm_glm$byClass["Specificity"]}` is very low.
+The table above shows the summarized metrics: the accuracy is not   excellent. The sensitivity is good, the specificity is good too, so the FPR=`r {1-cm_glm$byClass["Specificity"]}` is quite low.
 This approach seems to be quite satisfactory.
 
 
@@ -452,17 +456,17 @@ basically sampling with replacement. The randomness of the algorithm increases t
 ```{r model_RF_train, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 
 # RF Algorithm Cross Validation to look for mtry best parameter
-if(FALSE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
+if(TRUE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
   metric <- "Accuracy"
   control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
   set.seed(1234)
-  #COMMENT NEXT LINE if: rf.train <- readRDS("rfTrain.RDS")
   rf.train <- train(x,y, data=german_credit_train, method="rf",
                     metric=metric,
                     tuneLength=15, 
                     trControl=control)
+  saveRDS(rf.train,"rfTrain.RDS" )
 }
-if(TRUE){ # SET "FALSE" IF THE ABOVE BLOCK IS SET "TRUE"
+if(FALSE){ # SET "FALSE" IF THE ABOVE BLOCK IS SET "TRUE"
   rf.train <- readRDS("rfTrain.RDS") 
 }
 plot(rf.train, main="Random forest cross-validation") #plots the accuracy/mtree graphic
@@ -501,7 +505,7 @@ tab.rf_imp <- data_frame(Method = "RF_IMP", Accuracy = rf.cm.imp$overall["Accura
 
 ```
 
-The model, after cross-validation, is trained by randomForest randomForest's library function to tune both ntree and randomly selected predictors. The metrics obtained with all predictors are quite similar to the GLM apporach. The accuracy (0.75) is not so satisfactory; the sensitivity better than GLM, but GLM wins on specificity .
+The model, after cross-validation, is trained by randomForest randomForest's library function to tune both ntree and randomly selected predictors. The metrics obtained with all predictors are quite similar to the GLM apporach. The accuracy (0.76) is not so satisfactory; the sensitivity better than GLM, but GLM wins on specificity .
 In the second RF model, the nine most important predictors have been chosen for training: except a slightly reduction in sensitivity, there are improvements.
 `r {knitr::kable(tab.rf_imp)}`  
 
@@ -520,14 +524,15 @@ As shown in the metrics table, when using all variables as predictors, there are
 ```{r model_RPart,  echo=FALSE, message=FALSE, warning=FALSE}
 
 set.seed(1234)
-if(FALSE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
+if(TRUE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
     rpart.train <- train(x, y,  #COMMENT IF: rpart.train <- readRDS("rpartTrain.RDS")
                     method = 'rpart',
                     metric = 'Accuracy',
                     tuneGrid = data.frame(cp = seq(0, 0.05, len = 25)))
+saveRDS(rpart.train,"rpartTrain.RDS")
 
 }
-if(TRUE){ # SET "FALSE" IF THE ABOVE BLOCK IS SET "TRUE"
+if(FALSE){ # SET "FALSE" IF THE ABOVE BLOCK IS SET "TRUE"
   rpart.train <- readRDS("rpartTrain.RDS") 
 }
 plot(rpart.train, main="Rpart cross-validation")
@@ -549,9 +554,9 @@ knitr::kable(tab.rpart)
 
 #varable importance analysis
 plot(varImp(rpart.train), main="Rpart model: variable importance")
-#select variables whose importance is greater than zero and arrange them in a formula
+#select variables whose importance is greater than seventy
 rpart.imp <- varImp(rpart.train) %>% .$importance 
-rpart.imp <- rpart.imp%>% mutate(variable=row.names(rpart.imp)) %>%  filter(., Overall >0) %>% .$variable
+rpart.imp <- rpart.imp%>% mutate(variable=row.names(rpart.imp)) %>%  filter(., Overall >70) %>% .$variable
 
 rpart.impIndexes <- names(x) %in% rpart.imp
 rpart.dataImp <- x[rpart.impIndexes]
@@ -574,7 +579,7 @@ tab.rpart_imp <- data_frame(Method = "RPART_IMP", Accuracy = rpart.cm.imp$overal
 ```
 
 
-The VarImp results are clear: the Rpart algorithm, for fitting, takes into account mainly six over nineteen variables; anyway the prediction after the retraining done with the six-variables subset of predictors, gives a very low  specificity, so this model hardly would be chosen. 
+The VarImp results are clear: the Rpart algorithm, for fitting, takes into account mainly six over nineteen variables; anyway the prediction after the retraining done with the five-variables subset of predictor i slightly better baut there is the same low  specificity, so this model hardly would be chosen. 
 
 `r {knitr::kable(tab.rpart_imp)}`
 
@@ -599,7 +604,7 @@ This approach is based on the processing of the following formula:
   
   •	$P(C_k \vert X)$ = posterior probability. By combining our observed information, we are updating                        our *a priori* information on probabilities to compute a posterior                                  probability that an observation has class $C_k$
   
-  The NB approach using all predictors gives good results, the best accuracy and sensitivity so far, but very low specificity compared to GLM approach.
+  The NB approach using all predictors gives quite good results, but lose compared to GLM. The specificity is slighty better than RF
   
   
 ```{r model_NaiveBayes, echo=FALSE, message=FALSE, warning=FALSE}
@@ -719,7 +724,7 @@ him a credit loan and so there is neither any loss nor any profit. The results a
   
 Considering all the above rules, none of the model so far used and shown in the table would perfectly fit, so we should choose a trade-off approach.
 
-GLM seems to be a good approach: best  AUC, Accuracy and Specificity, but has not the best  *sensitivity* NB  sensitivity and accuracy are the best among all models so far tested, but has low *specificity* and AUC (67.2%) lower than GLM's AUC(70.2%). In this case, a deep analisys should be done in order to understand the weight of *credit_amount* ( the most important variable in all methods) and look for a better tradeoff between sensitivity and specificity.
+GLM seems to be a good approach: best  AUC and Accuracy, good Specificity, but has not the best  *sensitivity*; NB  has good *specificity* and AUC (68.5%) lower than GLM's AUC(70.3%) but higher that RF's AUC(66.5). In this case, a deep analisys should be done in order to understand the weight of *credit_amount* ( the most important variable in all methods) and look for a better tradeoff between sensitivity, specificity and AUC.
 
 
 ```{r Results,  echo=FALSE, message=FALSE,warning=FALSE}
@@ -747,5 +752,5 @@ knitr::kable(tab.complete)
 # Conclusions
 
 
-The data scientist should always keep in mind that the business requirement set is the main milestone when he works on whatever project. The techineques adopted in this project would aim to better explore the business rules and  the problem domain and eventually would find out the solution that best fits the use cases. Altough NB or GLM could be fair solutions for this use case, as seen in the results section, none of the models perfectly fits the solution: for example, further algorithms could be used and benchmarked (i.e. Neural networks); deeper analysis on important variable could be done and different seeds tested, ensemble tecniques should be helpful. Some or a combination of various approaches could drammaticaly improve metrics and reliability.  
+The data scientist should always keep in mind that the business requirement set is the main milestone when he works on whatever project. The techineques adopted in this project would aim to better explore the business rules and  the problem domain and eventually would find out the solution that best fits the use cases. Altough  GLM could be fair solutions for this use case, as seen in the results section, none of the models perfectly fits the problem: for example, further algorithms could be used and benchmarked (i.e. Neural networks); deeper analysis on important variable could be done and different seeds tested, ensemble tecniques should be helpful. Some or a combination of various approaches could drammaticaly improve metrics and reliability.  
 
