@@ -319,7 +319,7 @@ glm_pred_prob <- round(glm_pred_prob)
 glm_pred <- factor(ifelse(glm_pred_prob > 0.5, "good", "bad"))#Prediction as factor
 cm_glm <- confusionMatrix(data=glm_pred, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.glm <- data_frame(method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
+tab.glm <- data_frame(Method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(cm_glm$byClass["Specificity"])[1,1])
 
 print( knitr::kable(tab.glm))
@@ -343,7 +343,7 @@ rf.fits.all <- randomForest(x, y,  ntree = 500, mtry=rf.best_mtry ) #fits using 
 rf.pred.all <- predict(rf.fits.all, german_credit_test) #predict with all factors
 rf.cm <- confusionMatrix(rf.pred.all,german_credit_test$credit_response,positive = "good") #saving confusion matrix result
 #Creating a metrics table
-tab.rf <- data_frame(method = "RF", Accuracy = rf.cm$overall["Accuracy"], Sensitivity=data.frame(rf.cm$byClass["Sensitivity"])[1,1],
+tab.rf <- data_frame(Method = "RF", Accuracy = rf.cm$overall["Accuracy"], Sensitivity=data.frame(rf.cm$byClass["Sensitivity"])[1,1],
                                  Specificity=data.frame(rf.cm$byClass["Specificity"])[1,1])  
 print(knitr::kable(tab.rf))
 
@@ -361,7 +361,7 @@ rf.fits.imp <- randomForest(rf.formula, data=german_credit_train, ntree = 500, m
 rf.pred.imp <- predict(rf.fits.imp,german_credit_test)   #test data prediction 
 rf.cm.imp <- confusionMatrix(rf.pred.imp, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.rf_imp <- data_frame(method = "RF_IMP", Accuracy = rf.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rf.cm.imp$byClass["Sensitivity"])[1,1],
+tab.rf_imp <- data_frame(Method = "RF_IMP", Accuracy = rf.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rf.cm.imp$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rf.cm.imp$byClass["Specificity"])[1,1]) 
 
 print(knitr::kable(tab.rf_imp))
@@ -386,7 +386,7 @@ rpart.pred.all<- predict(rpart.train,german_credit_test)   #test data prediction
 
 rpart.cm <- confusionMatrix(rpart.pred.all, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.rpart <- data_frame(method = "RPART", Accuracy = rpart.cm$overall["Accuracy"], Sensitivity=data.frame(rpart.cm$byClass["Sensitivity"])[1,1],
+tab.rpart <- data_frame(Method = "RPART", Accuracy = rpart.cm$overall["Accuracy"], Sensitivity=data.frame(rpart.cm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rpart.cm$byClass["Specificity"])[1,1]) 
 #rpart_pred <- predict(train_rpart,german_credit_test, type = "prob")  %>% .$good #test data prediction for ROC curve
 
@@ -412,7 +412,7 @@ rpart.fits.imp <- train(rpart.dataImp, y,
 rpart.pred.imp <- predict(rpart.fits.imp,german_credit_test)   #test data prediction 
 rpart.cm.imp <- confusionMatrix(rpart.pred.imp, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.rpart_imp <- data_frame(method = "RPART_IMP", Accuracy = rpart.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rpart.cm.imp$byClass["Sensitivity"])[1,1],
+tab.rpart_imp <- data_frame(Method = "RPART_IMP", Accuracy = rpart.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rpart.cm.imp$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rpart.cm.imp$byClass["Specificity"])[1,1])
 print(knitr::kable(tab.rpart_imp))
 
@@ -432,6 +432,7 @@ search_grid <- expand.grid( #tuning parameters
 )
 
 # train model
+set.seed(1234)
 nb.fit.all <- train(  #fits with all variables
   x = x,
   y = y,
@@ -444,7 +445,7 @@ nb.fit.all <- train(  #fits with all variables
 nb.pred.all <- predict(nb.fit.all, newdata = german_credit_test) #predicts with all vatiables
 nb.cm <- confusionMatrix(nb.pred.all, german_credit_test$credit_response,positive = "good")
 
-tab.nb <- data_frame(method = "NB", Accuracy =nb.cm$overall["Accuracy"], Sensitivity=data.frame(nb.cm$byClass["Sensitivity"])[1,1],
+tab.nb <- data_frame(Method = "NB", Accuracy =nb.cm$overall["Accuracy"], Sensitivity=data.frame(nb.cm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(nb.cm$byClass["Specificity"])[1,1]) 
 
 print(knitr::kable(tab.nb))
@@ -461,6 +462,7 @@ nb.impIndexes <- names(x) %in% nb.importance
 nb.dataImp <- x[nb.impIndexes]
 
 ###re-fitting using variable importance
+set.seed(1234)
 nb.fit.varimp <- train( # train a model using only the "varimp>30" df
   nb.dataImp,y,
   method = "naive_bayes",
@@ -472,7 +474,7 @@ nb.fit.varimp <- train( # train a model using only the "varimp>30" df
 nb.pred.imp <- predict(nb.fit.varimp, newdata = german_credit_test)
 nb.cm.imp <- confusionMatrix(nb.pred.imp, german_credit_test$credit_response,positive = "good")
 
-tab.nb_imp <- data_frame(method = "NB-IMP", Accuracy =nb.cm.imp$overall["Accuracy"], Sensitivity=data.frame(nb.cm.imp$byClass["Sensitivity"])[1,1],
+tab.nb_imp <- data_frame(Method = "NB-IMP", Accuracy =nb.cm.imp$overall["Accuracy"], Sensitivity=data.frame(nb.cm.imp$byClass["Sensitivity"])[1,1],
                      Specificity=data.frame(nb.cm.imp$byClass["Specificity"])[1,1]) 
 
 print(knitr::kable(tab.nb_imp))

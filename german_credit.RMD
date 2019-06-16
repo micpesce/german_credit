@@ -1,7 +1,7 @@
 ---
-title: "german_credit"
+title: "German_credit"
 author: "Michele Pesce"
-date: "14 maggio 2019"
+date: "16 giugno 2019"
 output:
   pdf_document: default
   html_document:
@@ -19,6 +19,8 @@ library(readtext)
 library(graphics)
 library(caret)
 library(randomForest)
+
+
 #Retrieving the row original dataset 
 credit_original <- read.csv("german.data", header=FALSE, sep = " ")
 #Metadata definition and assignment
@@ -26,26 +28,26 @@ colNames = c("checking_account", "credit_duration", "Credit_history", "purpose",
 names(credit_original)   <-  colNames
 ```
 
-## Oveview
+# Overview
 
-The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at **<https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>**  It consists of a data text file containing 1k records and twenty attributes and has been converted in a dataframe named *credit_original*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are  explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names. In the next section the activity of conversion/replacement of dataset is shown.
-This project relies on a typical binary classification problem: there is only a label “credit” whose possible values are “good” and “bad” which refers to a bank customer who asked for a credit.
+The project is based on the study of the dataset **German credit data**, it has been downloaded from the UCI machine learning repository at **<https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29>**  It consists of a data text file containing 1k records and twentyone attributes and has been converted in a dataframe named *credit_original*. At a first sight there are factors and numbers, all the factors are coded data as “Axxx” format whose meanings are  explained in a description text file  “german.doc” located at the same repository; from the same file have been extracted the metadata and promptly converted in variables names. In the next section the activity of conversion/replacement of dataset is shown.
+This project relies on a typical binary classification problem: there is only a label “credit_response” whose possible values are “good” and “bad” which refers to a bank customer who asked for a credit.
 The bank board would wish to know in advance who would be good an who would be bad, on the basis of customer attributes. The target is to study and  evalute best approaches to predict with high reliability the customer category on the base of attributes/factors after data manipulation/trasformation and a set of analysis tasks. 
 This document reports the following sections:
 
-- **Data cleaning** In this section,  the data integrity is explored, and possibly executed all the operations to make the dataset assessable for further analisys
+- **Data cleaning** In this section,  the data integrity is explored, and possibly executed all the operations to make the dataset assessable for further analysis.
 
-- **Data exploration** Variables in the dataset are explored and checked in order to choose the relevant factors that could be used as predictors for the target labels.
+- **Data exploration** Variables in the dataset are explored and checked in order to choose the relevant factors that could be used as predictors for the target label.
 
 - **The modeling approach** ML algorithms that best fit the kind of problem are chosen to predict the outcome, on the basis of the predictors assesed on the data exploration section. Usually, more than an ML model is checked and tuned and chosen the one that best fits the business requirement.
 
 - **Results** The ML outcomes are compared, and evaluated pros and cons of the different approaches.
 
-- **Conclusions** To summary the operations, and take in consideration further different approaches that could improve the project and the results
+- **Conclusions** To summary the operations, and take in consideration further different approaches that could improve the project and the results.
 
 
 
-## Data Cleaning
+# Data Cleaning
 
 The first operation that have to be done on data is to check the presence of the inconsistent values that could affect the correctness of analysis and bias the ML model results. Generally, if we don’t take in count incoherent values, mean and sd could be affected by bias, all the further analisys would be affected by some kind of error, and prediction would fail. First of all, the presence of NA’s must be checked. Fortunately, the data frame does not contain NA’s values as shown in the following R code,
 so all the metrics are calculated on true data.
@@ -61,7 +63,8 @@ glimpse(credit_original)
 ```
 
 The next activity arranges data to get them more meaningful. The *credit_original* and the *key_map* dataframes are used as input for computing a new dataframe *credit_clear* whose values replace the coded "Axxx" values of  the original one.
-The *key_map* is  extracted from the *german.doc*, conveniently slightly handly modified, that is a kind of hash-map with two variables: the keys as "Axxx" format and the values as meaningful descriptions. Next, the glimpse of   *credit_clear* df.
+The *german.txt* file has been made as a slightly transformation of the  *german.doc* file.
+The *key_map* is  extracted from the *german.txt*,  that is a kind of hash-map with two variables: the keys as "Axxx" format and the values as meaningful descriptions. Next, the glimpse of   *key_map* and   *credit_clear* dataframes.
 
 
 ```{r dataReplacement, echo=FALSE, message=FALSE, warning=FALSE}
@@ -83,11 +86,14 @@ for (i in 1:length(names(credit_clear))) { #iterates all columns
     credit_clear[,i] <- key_map$VALUE[match(credit_clear[,i], key_map$KEY)] #replace key with values
 }
 
-credit_clear <- credit_clear %>% mutate(credit_response=ifelse(.$credit_response==1,"good", "bad")) #making credit variable as categorical
-
+credit_clear <- credit_clear %>% mutate(credit_response=ifelse(.$credit_response==1,"good", "bad")) 
+head(key_map)
+cat("\t\t\t\t\t\t\t\t\t\t*key_map head*\n\n\n\n\n\n\n\n\n\n\n\n\n")
+glimpse(credit_clear)
+cat("\t\t\t\t\t\t\t\t\t\t*credit_clear glimpse*\n")
 
 ```
-## Data exploration
+# Data exploration
 
 Prior to solve any ML problem, domain knowledge is essential, otherwise we will end up applying random algorithms and techniques blindly which may not give the right results. As a first step, to get a broad idea of what kind of data we are dealing with and summarize what has happened in the past, *descriptive analytics* will be applied.  The different attributes of the data will be observed in order to extract meaningful features, use statistics and visualizations to understand what has already happened. The information obtained could be  useful to select some predictive variables and exclude others that are not  The following table shows the number of unique values for each variable
 ```{r unique_values, echo=FALSE, message=FALSE, warning=FALSE}
@@ -124,11 +130,12 @@ p2 <- credit_clear %>% filter(credit_response=="bad") %>%  ggplot(aes(x=.$credit
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
-
+cat("*\n")
 
 ```
 
 The following illustrations show graphically and as-a-table the *Credit_history* distribution and proportions. More than half are trusted customers who are reliable debtors, one-third have critical account so that they need a loan for some purchase.
+
 ```{r credit_history_summary, echo=FALSE, message=FALSE, warning=FALSE}
 #credit history distribution
 credit_clear  %>% ggplot(aes(Credit_history)) +
@@ -136,11 +143,13 @@ credit_clear  %>% ggplot(aes(Credit_history)) +
   xlab("Credit history") + ylab("Count") + theme(axis.text.x = element_text(angle = 90))
 #the next code computes a table showing summarized categories and proportions inside Credit_history
 as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(amount=n())) %>% mutate(perc=amount/dim(credit_clear)[1]*100)%>% knitr::kable()
+cat("*\n")
 
 
 ```
 
 The next plot show no direct relationship between *Credit_history* and credit response ( the *credit_response* variable chosen as label). The two bar diagrams are quite similar and the different heights are releted to the proportion as shown in the table
+
 ```{r credit_history_by_credit_response, echo=FALSE, message=FALSE, warning=FALSE}
 
 #credit history distribution vs credit response
@@ -154,6 +163,7 @@ p2 <- credit_clear %>% filter(credit_response=="bad") %>%  ggplot(aes(x=.$Credit
 
 library(gridExtra)
 grid.arrange(p1, p2, ncol = 2)
+cat("*\n")
 
 
 ```
@@ -173,6 +183,7 @@ as.data.frame(credit_clear %>% group_by(personal_status) %>% summarize(amount=n(
 credit_clear  %>%  ggplot(aes(x=personal_status,y=age,fill=credit_response)) +
   ggtitle("Age by personal status")+ geom_boxplot(varwidth = TRUE) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+cat("*\n")
 
 ```
 
@@ -191,16 +202,22 @@ credit_clear  %>%  filter(job!="unemployed/unskilled_non-resident") %>% ggplot(a
   ggtitle("emplyment-history by credit amount on job parameter")+ geom_boxplot(varwidth = TRUE) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))+
   facet_grid(. ~ job)
+cat("*\n")
+
 ```
 
 The credit-history is important to figure out the customer trust; The 53% of them are reliable applicants that pay duly existing credits; the 30% are customers with critical account either with other credits in different bank. Anyway, as shown in the table, except for a 6% that has a good bank account, the proportions are fairly partitioned among enough account, negative account, or even with no account.
-The *credit duration density plot* shows that most of good credits last few weeks, whilst long time credits tend to be not so good.
-Looking at the *Cheking-account VS credit_duration* plot, except for customers with good account, the bank consider "bad" the credit_duration over 25 weeks: i.e. debtors,thin, and  no_accounts are absolutely bad, while good account is trusted as expected. The plot with credit_history parameter shows that existing_paid_duly customers are the most reliable.
-Finally, in the last plot *Credit amount by Cheking-account*  high credit_amount is approved for some with no account, but generally -if not with a good account- bad credit response is prevalent.
+The following **credit duration density plot**  shows that most of good credits last few weeks, whilst long time credits tend to be not so good.
+Looking at the **Cheking-account VS credit_duration** plot, except for customers with good account, the bank consider "bad" the credit_duration over 25 weeks: i.e. debtors,thin, and  no_accounts are absolutely bad, while good account is trusted as expected. The plot with *credit_history* parameter shows that *existing_paid_duly* customers are the most reliable.
+Finally, in the last plot **Credit amount by Cheking-account**  high *credit_amount* is approved for some with no account, but generally -if not with a good account- bad credit response is prevalent.
 ```{r checking_account/credit_duration/history, echo=FALSE, message=FALSE, warning=FALSE}
 #Credit_history proportion table
 as.data.frame(credit_clear %>% group_by(Credit_history) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
+
+cat("\t\t\t\t\t\t\t\t\t\t**********\n\n\n\n\n\n\n\n\n\n\n\n\n") #SOME SPACING
+cat("\t\t\t\t\t\t\t\t\t\t**********\n\n\n\n\n\n\n\n\n\n\n\n\n")
+cat("\t\t\t\t\t\t\t\t\t\t**********\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
 #checking_account proportion table
 as.data.frame(credit_clear %>% group_by(checking_account) %>% summarize(Total=n())) %>% 
@@ -233,15 +250,17 @@ credit_clear %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-As analysis last step, other meaningful attributes vs credit_amount have been illustrated. The saving_accounts proportion table shows that poors are the absolute majority: it is quite normal that who has low savings ( and possibly no other neither little property) tends to ask for a loan.
+As analysis last step, other meaningful attributes vs *credit_amount* have been illustrated. The *saving_accounts* proportion table shows that poors are the absolute majority: it is quite normal that who has low savings ( and possibly no other neither little property) tends to ask for a loan.
 The 60% of total ask loans for cars or radio/television.
-In the *Credit amount vs Property on saving-account parameter* the "excellent" saving_account value has been excluded, because it is a very few amount, also "good" and "very good" have very few applicants; poor or no-savings with no-property/unkown have favour but not for high amount.
-The *Credit amount vs age on saving-account parameter* plot shows a different perspective based on age: generally the most of customers are in the 20-45 age rank, anyway who has poor or no-saving could be older. Only a little proportion of poor-saving-customer gets credit over 7500 DM.On the other hand, customers with no or unknown savings have high chance to get positive classification. Seemingly, as savings increase, the proportion of good evaluation  increases too regardless age;  anyway the correlation between savings and credit amount is `r  {cor(credit_clear$credit_amount,as.numeric(as.factor(credit_clear$savings_account))) }` which is too low and it would depend, among others, on different age and saving proportions.
+In the **Credit amount vs Property on saving-account parameter** the "excellent" *saving_account* value has been excluded, because it is a very few amount, also "good" and "very good" have very few applicants; poor or no-savings with no-property/unkown have favour but not for high amount.
+The **Credit amount vs age on saving-account parameter** plot shows a different perspective based on age: generally the most of customers are in the 20-45 age rank, anyway who has poor or no-saving could be older. Only a little proportion of poor-saving-customer gets credit over 7500 DM.On the other hand, customers with no or unknown savings have high chance to get positive classification. Seemingly, as savings increase, the proportion of good evaluation  increases too regardless age;  anyway the correlation between savings and credit amount is `r  {cor(credit_clear$credit_amount,as.numeric(as.factor(credit_clear$savings_account))) }` which is too low and it would depend, among others, on different age and saving proportions.
 ```{r other/credit_amount/pt1, echo=FALSE, message=FALSE, warning=FALSE}
 #savings_account proportion table
 as.data.frame(credit_clear %>% group_by(savings_account) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
-
+cat("\t\t\t\t\t\t\t\t\t\t**********\n\n\n\n\n\n\n\n\n\n\n\n\n") #SOME SPACING
+cat("\t\t\t\t\t\t\t\t\t\t**********\n\n\n\n\n\n\n\n\n\n\n\n\n")
+cat("\t\t\t\t\t\t\t\t\t\t**********\n\n\n\n\n\n\n\n\n\n\n\n\n")
 #property proportion table
 as.data.frame(credit_clear %>% group_by(property) %>% summarize(Total=n())) %>% 
   mutate(perc=Total/dim(credit_clear)[1]*100)%>% knitr::kable()
@@ -306,25 +325,27 @@ credit_clear %>%
 
 ```
 
-## The modeling approach
+# The modeling approach
 
 **Preprocessing**
 
 At the end of data exploration, it’s important to inspect the relationship between variables, if two or more of them are correlated, they would give quite same information about prediction, so we should choose only the ones with no redundant information.
 To apply the correlation function, The *credit_original* must be converted in df numeric, i.e. all the factor variable are transformed in numeric, so we have a *credit_num* dataframe as shown in a glimpse.
-The correlation illustrated graphics show correlation between variables ordered by correlation rate. That couple that appears most correlated is *duration/credit_amount* whose value is `r  {cor(credit_clear$credit_duration,credit_clear$credit_amount) }`. Next, the related scatterplot that includes smoothing function; as shown, there is a natural straight relationship between amount and duration, the great is the credit the more are instalment (i.e. longer duration) when the credit is bad the tendency looks like quite different; anyway the general tendency seems to be too approximate, so that both should be considered as independent factors.
+The correlation illustrated graphics show correlation between variables ordered by correlation rate. That couple that appears most correlated is *duration/credit_amount* whose value is `r  {cor(credit_clear$credit_duration,credit_clear$credit_amount) }`. Next, the related scatterplot that includes smoothing function; as shown, there is a natural straight relationship between amount and duration, the great is the credit the more are instalment (i.e. longer duration) when the credit is bad the trend looks like quite different; anyway the general trend seems to be too approximate, so that both should be considered as independent factors.
 
 ```{r Preproc_correlation, echo=FALSE, message=FALSE, warning=FALSE}
 #converting credit_original to a numeric df
 credit_num<- credit_original%>% mutate_if(is.factor, as.numeric) 
 glimpse(credit_num)
+cat("\t\t\t\t\t\t\t\t\t\t*credit_num glimpse*\n")
 
+cat("\t\t\t\t\t\t\t\t\t\t**\n")
 library(corrplot)
 #create a visual map showing the correlation values between all variables
 #and is ordered by clustering
 cor(credit_num) %>% corrplot(., type="upper", order="hclust", tl.col="black")
-
-
+cat("\t\t\t\t\t\t\t\t\t\t*CORRELATION MAP*\n")
+cat("\t\t\t\t\t\t\t\t\t\t**\n")
 #the most correlated variables scatter plot and smoothing
 credit_clear  %>% ggplot(aes(credit_amount,credit_duration, color=credit_response)) +geom_point() + geom_smooth()
 
@@ -389,7 +410,7 @@ The following Machine learning algorithms have been chosen to fit train data and
 -	**Naive bayes**
 
 To explore the variable reduction approach, in the end of section the PCA model has been also inspected. 
-
+`r  { cat("\t\t\t\t\t\t\t\t\t\t********\n") }`
 
 **GLM**
 
@@ -409,19 +430,20 @@ glm_pred_prob <- round(glm_pred_prob)
 glm_pred <- factor(ifelse(glm_pred_prob > 0.5, "good", "bad"))#Prediction as factor
 cm_glm <- confusionMatrix(data=glm_pred, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.glm <- data_frame(method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
+tab.glm <- data_frame(Method = "GLM", Accuracy = cm_glm$overall["Accuracy"], Sensitivity=data.frame(cm_glm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(cm_glm$byClass["Specificity"])[1,1])
 
-print( knitr::kable(tab.glm))
+knitr::kable(tab.glm)
 
 ```
 
 
-The table above shows the summarized metrics: the accuracy is quite good but not excellent. The sensitivity is good, the FPR=`r {1-cm_glm$byClass["Specificity"]}` is quite considerable.
+The table above shows the summarized metrics: the accuracy is not   excellent. The sensitivity is good, the specificity is good too, so the FPR=`r {1-cm_glm$byClass["Specificity"]}` is very low.
+This approach seems to be quite satisfactory.
 
 
-
-**RANDOM FOREST**
+`r  { cat("\t\t\t\t\t\t\t\t\t\t***\n") }`
+**Random Forest**
 
 Random forest is  a machine learning algorithm that comes from the family of ensemble learning algorithms. At any point in time,each tree in the ensemble of decision trees is built from a bootstrap sample, which is
 basically sampling with replacement. The randomness of the algorithm increases the bias of the model slightly but decreases the variance and then prevents overfitting. The first approach takes into account all the variables, the second only a subset of them chosen after variable importance computed by cross-validated training 
@@ -430,55 +452,66 @@ basically sampling with replacement. The randomness of the algorithm increases t
 ```{r model_RF_train, eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
 
 # RF Algorithm Cross Validation to look for mtry best parameter
-metric <- "Accuracy"
-control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
-set.seed(123)
-#COMMENT NEXT LINE if: rf.train <- readRDS("rfTrain.RDS")
-#rf.train <- train(x,y, data=german_credit_train, method="rf",metric=metric, tuneLength=15, trControl=control)
-
-rf.train <- readRDS("rfTrain.RDS") # UNCOMMENT IF RUN THE ABOVE LINE
+if(FALSE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
+  metric <- "Accuracy"
+  control <- trainControl(method="repeatedcv", number=10, repeats=3, search="random")
+  set.seed(1234)
+  #COMMENT NEXT LINE if: rf.train <- readRDS("rfTrain.RDS")
+  rf.train <- train(x,y, data=german_credit_train, method="rf",
+                    metric=metric,
+                    tuneLength=15, 
+                    trControl=control)
+}
+if(TRUE){ # SET "FALSE" IF THE ABOVE BLOCK IS SET "TRUE"
+  rf.train <- readRDS("rfTrain.RDS") 
+}
 plot(rf.train, main="Random forest cross-validation") #plots the accuracy/mtree graphic
+cat("\t\t\t\t\t\t\t\t\t\t---\n") 
+cat("\t\t\t\t\t\t\t\t\t\t---\n")
 rf.best_mtry <- rf.train$bestTune$mtry #model best tune
 
-set.seed(123)
+set.seed(1234)
 rf.fits.all <- randomForest(x, y,  ntree = 500, mtry=rf.best_mtry ) #fits using best tuning
 rf.pred.all <- predict(rf.fits.all, german_credit_test) #predict with all factors
 rf.cm <- confusionMatrix(rf.pred.all,german_credit_test$credit_response,positive = "good") #saving confusion matrix result
 #Creating a metrics table
-tab.rf <- data_frame(method = "RF", Accuracy = rf.cm$overall["Accuracy"], Sensitivity=data.frame(rf.cm$byClass["Sensitivity"])[1,1],
+tab.rf <- data_frame(Method = "RF", Accuracy = rf.cm$overall["Accuracy"], Sensitivity=data.frame(rf.cm$byClass["Sensitivity"])[1,1],
                                  Specificity=data.frame(rf.cm$byClass["Specificity"])[1,1])  
-print(knitr::kable(tab.rf))
+knitr::kable(tab.rf)
 
 
 #fitting using the most important variable for the rf model
 rf.importance <- varImp(rf.train) %>% .$importance 
 rf.importance <- rf.importance%>% mutate(variable=row.names(rf.importance)) %>%  filter(., Overall >25) %>% .$variable
 plot(varImp(rf.train), main="Random forest model: variable importance")
-
+cat("\t\t\t\t\t\t\t\t\t\t---\n") 
+cat("\t\t\t\t\t\t\t\t\t\t---\n")
 #select the first n factors( ten in this case) concat names by "+" and "~" 
 #and finally transform it to use as first pred/ouput parameter in train function  
 rf.formula <-as.formula(rf.importance %>% paste(.,collapse="+") %>% c("y",.) %>% paste0(. ,collapse="~"))
-set.seed(123)
+set.seed(1234)
 rf.fits.imp <- randomForest(rf.formula, data=german_credit_train, ntree = 500, mtry=rf.best_mtry )  #training model with the subset importance variable
 rf.pred.imp <- predict(rf.fits.imp,german_credit_test)   #test data prediction 
 rf.cm.imp <- confusionMatrix(rf.pred.imp, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.rf_imp <- data_frame(method = "RF_IMP", Accuracy = rf.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rf.cm.imp$byClass["Sensitivity"])[1,1],
+tab.rf_imp <- data_frame(Method = "RF_IMP", Accuracy = rf.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rf.cm.imp$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rf.cm.imp$byClass["Specificity"])[1,1]) 
 
 
 
 ```
 
-The model, after cross-validation, is trained by randomForest randomForest's library function to tune both ntree and randomly selected predictors. The metrcs obtained with all predictors is better than the GLM apporach. The accuracy (0.80) is satisfactory and sensitivity too considering that the 70% of true data are *"good"*,  the specificity has improved too.
-In the second RF model, the nine most important predictors have been chosen for training: except a slightly specificity improvement, the other metrics got worse!`r {print(knitr::kable(tab.rf_imp))}`
+The model, after cross-validation, is trained by randomForest randomForest's library function to tune both ntree and randomly selected predictors. The metrics obtained with all predictors are quite similar to the GLM apporach. The accuracy (0.75) is not so satisfactory; the sensitivity better than GLM, but GLM wins on specificity .
+In the second RF model, the nine most important predictors have been chosen for training: except a slightly reduction in sensitivity, there are improvements.
+`r {knitr::kable(tab.rf_imp)}`  
 
 
+`r  { cat("\t\t\t\t\t\t\t\t\t\t***\n") }`
 
-**RPART**
+**RPart**
 
 Rpart is an algorithm  that is a part of the decision trees family, that is CART family. Decision trees are mainly used for making decisions that would be most useful in reaching some objective and designing a strategy based on these decisions. They  are easy to represent, construct, and understand. However, the drawback is that they are very prone to overfitting. 
-As shown in the metrics table, when using all variables as predictors, the results are not so good as RandomForest
+As shown in the metrics table, when using all variables as predictors, there are 	worsenings compared to GML and RF except for the sensitivity
 
 
 
@@ -487,14 +520,19 @@ As shown in the metrics table, when using all variables as predictors, the resul
 ```{r model_RPart,  echo=FALSE, message=FALSE, warning=FALSE}
 
 set.seed(1234)
-#rpart.train <- train(x, y,  #COMMENT IF: rpart.train <- readRDS("rpartTrain.RDS")
-                    # method = 'rpart',
-                    # metric = 'Accuracy',
-                    # tuneGrid = data.frame(cp = seq(0, 0.05, len = 25)))
+if(FALSE){ # SET "TRUE" IF  THE NEXT BLOCK IS SET FALSE
+    rpart.train <- train(x, y,  #COMMENT IF: rpart.train <- readRDS("rpartTrain.RDS")
+                    method = 'rpart',
+                    metric = 'Accuracy',
+                    tuneGrid = data.frame(cp = seq(0, 0.05, len = 25)))
 
-
-rpart.train <- readRDS("rpartTrain.RDS") # UNCOMMENT IF RUN THE ABOVE LINE 
+}
+if(TRUE){ # SET "FALSE" IF THE ABOVE BLOCK IS SET "TRUE"
+  rpart.train <- readRDS("rpartTrain.RDS") 
+}
 plot(rpart.train, main="Rpart cross-validation")
+cat("\t\t\t\t\t\t\t\t\t\t---\n") 
+cat("\t\t\t\t\t\t\t\t\t\t---\n")
 
 rpart.best_mtry <- rpart.train$bestTune$cp #model best tune for rpart (cp parameter)
 
@@ -503,11 +541,11 @@ rpart.pred.all<- predict(rpart.train,german_credit_test)   #test data prediction
 
 rpart.cm <- confusionMatrix(rpart.pred.all, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.rpart <- data_frame(method = "RPART", Accuracy = rpart.cm$overall["Accuracy"], Sensitivity=data.frame(rpart.cm$byClass["Sensitivity"])[1,1],
+tab.rpart <- data_frame(Method = "RPART", Accuracy = rpart.cm$overall["Accuracy"], Sensitivity=data.frame(rpart.cm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rpart.cm$byClass["Specificity"])[1,1]) 
-#rpart_pred <- predict(train_rpart,german_credit_test, type = "prob")  %>% .$good #test data prediction for ROC curve
+ 
 
-print(knitr::kable(tab.rpart))
+knitr::kable(tab.rpart)
 
 #varable importance analysis
 plot(varImp(rpart.train), main="Rpart model: variable importance")
@@ -529,18 +567,20 @@ rpart.fits.imp <- train(rpart.dataImp, y,
 rpart.pred.imp <- predict(rpart.fits.imp,german_credit_test)   #test data prediction 
 rpart.cm.imp <- confusionMatrix(rpart.pred.imp, reference=german_credit_test$credit_response,positive = "good")
 #Saving the model result
-tab.rpart_imp <- data_frame(method = "RPART_IMP", Accuracy = rpart.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rpart.cm.imp$byClass["Sensitivity"])[1,1],
+tab.rpart_imp <- data_frame(Method = "RPART_IMP", Accuracy = rpart.cm.imp$overall["Accuracy"], Sensitivity=data.frame(rpart.cm.imp$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(rpart.cm.imp$byClass["Specificity"])[1,1])
 
 
 ```
 
 
-The VarImp results are clear: the Rpart algorithm, for fitting, takes into account mainly six over nineteen variables; anyway the prediction after the retraining done with the six-variables subset of predictors, gives improved accuracy and sensitivity, but a very low  specificity, so that there is an high False positive rate. 
-`r {print(knitr::kable(tab.rpart_imp))}`
+The VarImp results are clear: the Rpart algorithm, for fitting, takes into account mainly six over nineteen variables; anyway the prediction after the retraining done with the six-variables subset of predictors, gives a very low  specificity, so this model hardly would be chosen. 
 
+`r {knitr::kable(tab.rpart_imp)}`
 
-**NAIVE BAYES**
+`r  { cat("\t\t\t\t\t\t\t\t\t\t***\n") }`
+
+**Naive Bayes**
 
 The Naïve Bayes classifier is a simple probabilistic classifier which is based on Bayes theorem but with strong assumptions regarding independence.
 Bayesian probability incorporates the concept of conditional probability, the probabilty of event A given that event B has occurred.
@@ -559,7 +599,7 @@ This approach is based on the processing of the following formula:
   
   •	$P(C_k \vert X)$ = posterior probability. By combining our observed information, we are updating                        our *a priori* information on probabilities to compute a posterior                                  probability that an observation has class $C_k$
   
-  The NB approach using all predictors gives good results, not the best accuracy, an acceptable  sensitivity and the best specificity so far. 
+  The NB approach using all predictors gives good results, the best accuracy and sensitivity so far, but very low specificity compared to GLM approach.
   
   
 ```{r model_NaiveBayes, echo=FALSE, message=FALSE, warning=FALSE}
@@ -574,6 +614,7 @@ search_grid <- expand.grid( #tuning parameters
 )
 
 # train model
+set.seed(1234)
 nb.fit.all <- train(  #fits with all variables
   x = x,
   y = y,
@@ -586,11 +627,12 @@ nb.pred.all <- predict(nb.fit.all, newdata = german_credit_test) #predicts with 
 nb.cm <- confusionMatrix(nb.pred.all, german_credit_test$credit_response,positive = "good")
 
 #prediction and metrics using all variables
-tab.nb <- data_frame(method = "NB", Accuracy =nb.cm$overall["Accuracy"], Sensitivity=data.frame(nb.cm$byClass["Sensitivity"])[1,1],
+tab.nb <- data_frame(Method = "NB", Accuracy =nb.cm$overall["Accuracy"], Sensitivity=data.frame(nb.cm$byClass["Sensitivity"])[1,1],
            Specificity=data.frame(nb.cm$byClass["Specificity"])[1,1]) 
 
-print(knitr::kable(tab.nb))
-
+knitr::kable(tab.nb)
+cat("\t\t\t\t\t\t\t\t\t\t---\n") 
+cat("\t\t\t\t\t\t\t\t\t\t---\n")
 plot(varImp(nb.fit.all),  main="Naive bayes: variable importance")
 
 
@@ -603,6 +645,7 @@ nb.impIndexes <- names(x) %in% nb.importance
 nb.dataImp <- x[nb.impIndexes]
 
 ###re-fitting using variable importance
+set.seed(1234)
 nb.fit.varimp <- train( # train a model using only the "varimp>30" df
   nb.dataImp,y,
   method = "naive_bayes",
@@ -614,17 +657,20 @@ nb.fit.varimp <- train( # train a model using only the "varimp>30" df
 nb.pred.imp <- predict(nb.fit.varimp, newdata = german_credit_test)
 nb.cm.imp <- confusionMatrix(nb.pred.imp, german_credit_test$credit_response,positive = "good")
 
-tab.nb_imp <- data_frame(method = "NB-IMP", Accuracy =nb.cm.imp$overall["Accuracy"], Sensitivity=data.frame(nb.cm.imp$byClass["Sensitivity"])[1,1],
+tab.nb_imp <- data_frame(Method = "NB-IMP", Accuracy =nb.cm.imp$overall["Accuracy"], Sensitivity=data.frame(nb.cm.imp$byClass["Sensitivity"])[1,1],
                      Specificity=data.frame(nb.cm.imp$byClass["Specificity"])[1,1]) 
 
 
 
 ```
  
- The model has been retrained using the most five important predictors computed by varimp: Accuracy is quite the same as the previous "all-variables" model, slightly better sensitivity but an higher FPR
- `r {print(knitr::kable(tab.nb_imp))}`
+ The model has been retrained using the most five important predictors computed by varimp: there is general worstening compared to the all-variables NB model.
  
-**PRINCIPAL COMPONENT ANALYSIS**
+ `r {knitr::kable(tab.nb_imp)}`
+ 
+ 
+ `r  { cat("\t\t\t\t\t\t\t\t\t\t***\n") }`
+**Principal Component Analysis**
 
   The idea of PCA is simple: reduce the number of variables of a data set, while preserving as much information as possible. This model is based on a dimensionality-reduction method that is often used to reduce the dimensionality of large data sets, by transforming a large set of variables into a smaller one that still contains most of the information in the large set.
  In this particular case, there are 1.000 observations covered by 19 variables. As seen before, none of them is correlated to each other, so we expect no great advatage using PCA.
@@ -639,6 +685,8 @@ z <- apply(as.matrix(credit_num[,1:19]),2, scale)
 pca <- prcomp(z) #pc of numeric version of german_credit dataset
 pca.summary <- summary(pca)
 print(pca.summary)
+cat("\t\t\t\t\t\t\t\t\t\t---\n") 
+cat("\t\t\t\t\t\t\t\t\t\t---\n")
 proportion.variance <- pca.summary$importance[2,] # select vector of  variance proportion by PCx
 proportion.cumulative <- pca.summary$importance[3,] #select vector of cumulative proportion  by PCx
 
@@ -653,16 +701,16 @@ pr_comp <- round(sum(proportion.variance[1:3])*100)
 
 ```
 
-The variance distribution shows that beyond the first three component there is a great amount of variability, i.e. the principal three component have only the  `r {print(pr_comp)}`% of total variability. On the basis of this evidence, no training/predictions have been done using PCA.
+The variance distribution shows that beyond the first three component there is a great amount of variability, i.e. the principal three component have only the  `r {pr_comp}`% of total variability. On the basis of this evidence, no training/predictions have been done using PCA.
 
 
-## Results
+# Results
 
 Prior to choose the best approach, we should keep always keep in mind the business requirements related to the particular project. In other words, the decision is to choose  the best model to maximize profits and minimize losses for the bank. These would be the main rules to follow:
 
   • To predict a customer with bad credit rating as good, the bank will end up losing the whole credit amount lent to him since he will default on the payment and so loss for the bank is 100%, so the FPR should be as low as possible ( specificity as high as possible )
   
-  • To incorrectly predict a customer with good credit rating as bad, means to deny him the credit loan but there is neither any profit nor any loss involved in this case. High sensitivity is appreciated but is more important good specificity.
+  • To incorrectly predict a customer with good credit rating as bad, means to deny him the credit loan but there is neither any profit nor any loss involved in this case. High sensitivity is appreciated, but specificity shoud more important .
   
   • To correctly predict a customer with bad credit rating as bad, means correctly deny
 him a credit loan and so there is neither any loss nor any profit. The results as the same as the previous conditions, but there is better accuracy and better prediction skills.
@@ -671,7 +719,7 @@ him a credit loan and so there is neither any loss nor any profit. The results a
   
 Considering all the above rules, none of the model so far used and shown in the table would perfectly fit, so we should choose a trade-off approach.
 
-NB and RF get the same AUC shold appear best two, but the first has better specificity ( we have to keep in mind the importance of low FPR) on the other hand RF has much better sensitivity. So in this case, a deep analisys shold be done in order to understand the weight of *credit_amount* ( the most important variable in all methods) and choose for better sensitivity than specificity.
+GLM seems to be a good approach: best  AUC, Accuracy and Specificity, but has not the best  *sensitivity* NB  sensitivity and accuracy are the best among all models so far tested, but has low *specificity* and AUC (67.2%) lower than GLM's AUC(70.2%). In this case, a deep analisys should be done in order to understand the weight of *credit_amount* ( the most important variable in all methods) and look for a better tradeoff between sensitivity and specificity.
 
 
 ```{r Results,  echo=FALSE, message=FALSE,warning=FALSE}
@@ -692,12 +740,12 @@ for(tab.record in tab.entry){
   tab.complete <- bind_rows(tab.complete,tab.record)
 }
 
-print(knitr::kable(tab.complete))
+knitr::kable(tab.complete)
 
 ```
 
-## Conclusions
+# Conclusions
 
 
-The data scientist should always keep in mind that the business requirement set is the main milestone when he works on whatever project. The techineques adopted in this project would aim to better explore the business rules and  the problem domain and eventually would find out the solution that best fits the use cases. As seen in the results section, none of the models perfectly fits the solution: for example, further algorithms could be used and benchmarked; deeper analysis on important variable could be done. Ensemble tecniques shoold be helpful. Anyway, for this project, to choose NB or RF cold be a satisfactory solution.
+The data scientist should always keep in mind that the business requirement set is the main milestone when he works on whatever project. The techineques adopted in this project would aim to better explore the business rules and  the problem domain and eventually would find out the solution that best fits the use cases. Altough NB or GLM could be fair solutions for this use case, as seen in the results section, none of the models perfectly fits the solution: for example, further algorithms could be used and benchmarked (i.e. Neural networks); deeper analysis on important variable could be done and different seeds tested, ensemble tecniques should be helpful. Some or a combination of various approaches could drammaticaly improve metrics and reliability.  
 
